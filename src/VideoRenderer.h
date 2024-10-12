@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL.h>
+#include <vector>
 #include "Frame.h"
 
 /**
@@ -10,7 +11,7 @@
  */
 class VideoRenderer {
 public:
-    VideoRenderer(int width, int height);
+    VideoRenderer(int width, int height, int segmentCount);
     ~VideoRenderer();
 
     bool init();
@@ -23,4 +24,6 @@ private:
     SDL_Texture* texture;
     int width;
     int height;
+    std::vector<SDL_Rect> segments;
+    int segmentCount;
 };

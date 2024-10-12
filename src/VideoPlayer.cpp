@@ -18,7 +18,7 @@ VideoPlayer::VideoPlayer(const char* filename) {
     }
 
     // Initialize the video renderer with the dimensions of the video
-    renderer = new VideoRenderer(decoder->getWidth(), decoder->getHeight());
+    renderer = new VideoRenderer(decoder->getWidth(), decoder->getHeight(), 4);
     if (!renderer->init()) {
         throw std::runtime_error("Failed to initialize video renderer");
     }

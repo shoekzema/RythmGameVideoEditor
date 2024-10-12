@@ -6,9 +6,27 @@
  *
  * @param width The initial width of the window.
  * @param height The initial height of the window.
+ * TODO
  */
-VideoRenderer::VideoRenderer(int width, int height)
-    : window(nullptr), renderer(nullptr), texture(nullptr), width(width), height(height) {}
+VideoRenderer::VideoRenderer(int width, int height, int segmentCount)
+    : window(nullptr), renderer(nullptr), texture(nullptr), width(width), height(height), segmentCount(segmentCount) 
+{
+    // Calculate segment dimensions
+    int segmentWidth = width / 2;
+    int segmentHeight = height / 2;
+
+    // Create segments (2 horizontal, each with 2 vertical)
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            SDL_Rect segment;
+            segment.x = j * segmentWidth;
+            segment.y = i * segmentHeight;
+            segment.w = segmentWidth;
+            segment.h = segmentHeight;
+            segments.push_back(segment);
+        }
+    }
+}
 
 /**
  * @brief Destructor for the VideoRenderer class.
@@ -78,10 +96,12 @@ void VideoRenderer::renderFrame(const Frame& frame) {
     // Clear the renderer to prepare for new frame rendering
     SDL_RenderClear(renderer);
 
-    // Copy the texture to the renderer
-    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    // Render the frame in each segment
+    for (const auto& segment : segments) {
+        SDL_RenderCopy(renderer, texture, NULL, &segment);
+    }
 
-    // Present the updated renderer (show the frame)
+    // Present the updated renderer (show the frames)
     SDL_RenderPresent(renderer);
 }
 
@@ -101,6 +121,26 @@ void VideoRenderer::handleEvents(bool& quit) {
         // Check if the event is a quit event
         if (event.type == SDL_QUIT) {
             quit = true; // Set the quit flag to true to terminate the main loop
+        }
+        else if (event.type == SDL_WINDOWEVENT) {
+            if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                width = event.window.data1;
+                height = event.window.data2;
+                // Update segment sizes
+                int segmentWidth = width / 2;
+                int segmentHeight = height / 2;
+                segments.clear(); // Clear existing segments
+                for (int i = 0; i < 2; ++i) {
+                    for (int j = 0; j < 2; ++j) {
+                        SDL_Rect segment;
+                        segment.x = j * segmentWidth;
+                        segment.y = i * segmentHeight;
+                        segment.w = segmentWidth;
+                        segment.h = segmentHeight;
+                        segments.push_back(segment);
+                    }
+                }
+            }
         }
     }
 }
