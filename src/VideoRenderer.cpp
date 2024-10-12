@@ -8,19 +8,20 @@
  * @param height The initial height of the window.
  * TODO
  */
-VideoRenderer::VideoRenderer(int width, int height, int segmentCount)
-    : window(nullptr), renderer(nullptr), texture(nullptr), width(width), height(height), segmentCount(segmentCount) 
+VideoRenderer::VideoRenderer(int width, int height, int segmentCount, int borderThickness)
+    : window(nullptr), renderer(nullptr), texture(nullptr), width(width), height(height), 
+    segmentCount(segmentCount), borderThickness(borderThickness)
 {
-    // Calculate segment dimensions
-    int segmentWidth = width / 2;
-    int segmentHeight = height / 2;
+    // Calculate segment dimensions with borders
+    int segmentWidth = (width - borderThickness) / 2;
+    int segmentHeight = (height - borderThickness) / 2;
 
     // Create segments (2 horizontal, each with 2 vertical)
     for (int i = 0; i < 2; ++i) {
         for (int j = 0; j < 2; ++j) {
             SDL_Rect segment;
-            segment.x = j * segmentWidth;
-            segment.y = i * segmentHeight;
+            segment.x = j * (segmentWidth + borderThickness);
+            segment.y = i * (segmentHeight + borderThickness);
             segment.w = segmentWidth;
             segment.h = segmentHeight;
             segments.push_back(segment);
@@ -101,6 +102,20 @@ void VideoRenderer::renderFrame(const Frame& frame) {
         SDL_RenderCopy(renderer, texture, NULL, &segment);
     }
 
+    // Set the border color (you can customize this)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White border
+
+    // Draw borders
+    for (const auto& segment : segments) {
+        // Draw the right border
+        SDL_Rect borderRect = { segment.x + segment.w, segment.y, borderThickness, segment.h };
+        SDL_RenderFillRect(renderer, &borderRect);
+
+        // Draw the bottom border
+        borderRect = { segment.x, segment.y + segment.h, segment.w + borderThickness, borderThickness };
+        SDL_RenderFillRect(renderer, &borderRect);
+    }
+
     // Present the updated renderer (show the frames)
     SDL_RenderPresent(renderer);
 }
@@ -126,15 +141,15 @@ void VideoRenderer::handleEvents(bool& quit) {
             if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                 width = event.window.data1;
                 height = event.window.data2;
-                // Update segment sizes
-                int segmentWidth = width / 2;
-                int segmentHeight = height / 2;
+                // Update segment sizes considering the border
+                int segmentWidth = (width - borderThickness) / 2;
+                int segmentHeight = (height - borderThickness) / 2;
                 segments.clear(); // Clear existing segments
                 for (int i = 0; i < 2; ++i) {
                     for (int j = 0; j < 2; ++j) {
                         SDL_Rect segment;
-                        segment.x = j * segmentWidth;
-                        segment.y = i * segmentHeight;
+                        segment.x = j * (segmentWidth + borderThickness);
+                        segment.y = i * (segmentHeight + borderThickness);
                         segment.w = segmentWidth;
                         segment.h = segmentHeight;
                         segments.push_back(segment);

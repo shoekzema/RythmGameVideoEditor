@@ -11,7 +11,7 @@
  */
 class VideoRenderer {
 public:
-    VideoRenderer(int width, int height, int segmentCount);
+    VideoRenderer(int width, int height, int segmentCount, int borderThickness);
     ~VideoRenderer();
 
     bool init();
@@ -26,4 +26,5 @@ private:
     int height;
     std::vector<SDL_Rect> segments;
     int segmentCount;
+    int borderThickness;
 };
