@@ -1,5 +1,4 @@
-#ifndef FRAME_H
-#define FRAME_H
+#pragma once
 
 #include <cstdint>
 #include <vector>
@@ -13,5 +12,3 @@ struct Frame {
     Frame(int w, int h, int line_size)
         : width(w), height(h), linesize(line_size), data(w* h * 3) {}  // Assuming RGB (3 bytes per pixel)
 };
-
-#endif // FRAME_H

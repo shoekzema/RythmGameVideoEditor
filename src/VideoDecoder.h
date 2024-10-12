@@ -1,5 +1,4 @@
-#ifndef VIDEODECODER_H
-#define VIDEODECODER_H
+#pragma once
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -35,4 +34,3 @@ private:
     const AVCodec* codec;
 };
 
-#endif // VIDEODECODER_H

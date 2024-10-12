@@ -1,5 +1,4 @@
-#ifndef VIDEORENDERER_H
-#define VIDEORENDERER_H
+#pragma once
 
 #include <SDL.h>
 #include "Frame.h"
@@ -25,5 +24,3 @@ private:
     int width;
     int height;
 };
-
-#endif // VIDEORENDERER_H

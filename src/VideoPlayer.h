@@ -1,5 +1,4 @@
-#ifndef VIDEOPLAYER_H
-#define VIDEOPLAYER_H
+#pragma once
 
 #include "VideoDecoder.h"
 #include "VideoRenderer.h"
@@ -23,4 +22,3 @@ private:
     SwsContext* sws_ctx;
 };
 
-#endif // VIDEOPLAYER_H
