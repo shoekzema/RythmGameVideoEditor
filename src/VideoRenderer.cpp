@@ -58,7 +58,7 @@ bool VideoRenderer::init() {
 
     // Create an SDL window
     window = SDL_CreateWindow("FFmpeg Video Player",
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
 
     if (!window) {
         std::cerr << "Window could not be created! SDL Error: " << SDL_GetError() << std::endl;
@@ -155,6 +155,101 @@ void VideoRenderer::handleEvents(bool& quit) {
                         segments.push_back(segment);
                     }
                 }
+            }
+        }
+        else if (event.type == SDL_MOUSEBUTTONDOWN) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                SDL_Point mousePoint = { event.button.x, event.button.y };
+
+                std::vector<SDL_Rect> dividers;
+
+                // Create vertical dividers
+                dividers.push_back({ segments[0].x + segments[0].w, segments[0].y, borderThickness, segments[0].h }); // Between top-left and top-right
+                dividers.push_back({ segments[2].x + segments[2].w, segments[2].y, borderThickness, segments[2].h }); // Between bottom-left and bottom-right
+
+                // Create horizontal dividers
+                dividers.push_back({ segments[0].x, segments[0].y + segments[0].h, segments[0].w, borderThickness }); // Between top-left and bottom-left
+                dividers.push_back({ segments[1].x, segments[1].y + segments[1].h, segments[1].w, borderThickness }); // Between top-right and bottom-right
+
+                for (size_t i = 0; i < dividers.size(); ++i) {
+                    if (SDL_PointInRect(&mousePoint, &dividers[i])) {
+                        resizing = true; // Start resizing
+                        lastMouseX = event.button.x;
+                        lastMouseY = event.button.y;
+                        // Determine if it is a vertical or horizontal divider
+                        resizingVertical = (i < 2); // Assuming the first two are vertical
+                        SDL_SetCursor(SDL_CreateSystemCursor(resizingVertical ? SDL_SYSTEM_CURSOR_SIZEWE : SDL_SYSTEM_CURSOR_SIZENS)); // Change cursor to resize
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        else if (event.type == SDL_MOUSEMOTION) {
+            if (resizing) {
+                int deltaX = event.motion.x - lastMouseX;
+                int deltaY = event.motion.y - lastMouseY;
+
+                if (resizingVertical) {
+                    // Update the widths of the left and right segments
+                    segments[0].w += deltaX; // Top left
+                    segments[1].x += deltaX; // Top right
+                    segments[1].w -= deltaX;
+                    segments[2].w += deltaX; // Bottom left
+                    segments[3].x += deltaX; // Bottom right
+                    segments[3].w -= deltaX;
+                }
+                else {
+                    // Update the heights of the top and bottom segments
+                    segments[0].h += deltaY; // Top left
+                    segments[1].h += deltaY; // Top right
+                    segments[2].y += deltaY; // Bottom left
+                    segments[2].h -= deltaY;
+                    segments[3].y += deltaY; // Bottom right
+                    segments[3].h -= deltaY;
+                }
+
+                // Update the last mouse position
+                lastMouseX = event.motion.x;
+                lastMouseY = event.motion.y;
+            }
+            else {
+                SDL_Point mousePoint = { event.motion.x, event.motion.y };
+                bool cursorChanged = false;
+
+                std::vector<SDL_Rect> dividers;
+
+                // Create vertical dividers
+                dividers.push_back({ segments[0].x + segments[0].w, segments[0].y, borderThickness, segments[0].h }); // Between top-left and top-right
+                dividers.push_back({ segments[2].x + segments[2].w, segments[2].y, borderThickness, segments[2].h }); // Between bottom-left and bottom-right
+
+                // Create horizontal dividers
+                dividers.push_back({ segments[0].x, segments[0].y + segments[0].h, segments[0].w, borderThickness }); // Between top-left and bottom-left
+                dividers.push_back({ segments[1].x, segments[1].y + segments[1].h, segments[1].w, borderThickness }); // Between top-right and bottom-right
+
+                // Check if the mouse is over any dividers
+                for (size_t i = 0; i < dividers.size(); ++i) {
+                    if (SDL_PointInRect(&mousePoint, &dividers[i])) {
+                        std::cout << "check" << std::endl;
+
+                        // Change cursor to resize (either horizontal or vertical)
+                        SDL_SetCursor(SDL_CreateSystemCursor((i < 2) ? SDL_SYSTEM_CURSOR_SIZEWE : SDL_SYSTEM_CURSOR_SIZENS));
+                        cursorChanged = true;
+                        break;
+                    }
+                }
+
+                // Reset cursor if not hovering over any borders
+                if (!cursorChanged) {
+                    SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW));
+                }
+            }
+            break;
+        }
+        else if (event.type == SDL_MOUSEBUTTONUP) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                resizing = false; // Stop resizing
+                SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW));
             }
         }
     }

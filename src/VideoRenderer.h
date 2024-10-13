@@ -27,4 +27,9 @@ private:
     std::vector<SDL_Rect> segments;
     int segmentCount;
     int borderThickness;
+
+    bool resizing = false;              // Track whether we are resizing
+    bool resizingVertical = false;      // Track whether we are resizing vertically (otherwise horizontal)
+    int lastMouseX = 0;
+    int lastMouseY = 0;
 };
