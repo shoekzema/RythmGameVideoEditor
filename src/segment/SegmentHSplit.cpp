@@ -27,6 +27,10 @@ void SegmentHSplit::render() {
 // Update the position and size of the segment
 void SegmentHSplit::update(int x, int y, int w, int h) {
     Segment::update(x, y, w, h);
+    int heightDiff = h - rect.h;
+    topSegment   ->update(x, y,                  w, topSegment->rect.h - heightDiff / 2);
+    bottomSegment->update(x, topSegment->rect.h, w, h - topSegment->rect.h);
+    divider = { x, divider.y - heightDiff / 2, w, dividerThickness };
 }
 
 // Handle user events
@@ -44,8 +48,8 @@ void SegmentHSplit::handleEvent(SDL_Event& event) {
                 // Resize the segments dynamically by dragging the divider
                 int newMiddle = std::max(0, std::min(event.motion.y, appWindowSizeY)) - rect.y - divider.h / 2;
                 divider.y = newMiddle;
-                topSegment->update(topSegment->rect.x, topSegment->rect.y, topSegment->rect.w, newMiddle);
-                bottomSegment->update(bottomSegment->rect.x, newMiddle, bottomSegment->rect.w, rect.h - newMiddle);
+                topSegment   ->update(topSegment   ->rect.x, topSegment->rect.y, topSegment   ->rect.w, newMiddle);
+                bottomSegment->update(bottomSegment->rect.x, newMiddle,          bottomSegment->rect.w, rect.h - newMiddle);
             }
             else if (SDL_PointInRect(&mouseMotion, &divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS));
