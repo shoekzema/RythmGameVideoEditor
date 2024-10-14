@@ -2,8 +2,8 @@
 #include <SDL.h>
 #include "VideoPlayer.h"
 
-int main() {
-    const char* filename = "FilePath";
+int mainOLD() {
+    const char* filename = "C:/Users/Stefan/Videos/MMR_demo.mp4";
 
     try {
         VideoPlayer player(filename);
