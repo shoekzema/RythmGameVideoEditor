@@ -5,8 +5,7 @@ Application::Application(int width, int height)
     : window(nullptr), renderer(nullptr), running(false),
     screenWidth(width), screenHeight(height) {
     if (init()) {
-        //rootSegment = new Segment(0, 0, screenWidth, screenHeight, renderer);
-        rootSegment = new SegmentHSplit(0, 0, screenWidth, screenHeight, renderer);
+        rootSegment = new SegmentHSplit(0, 0, screenWidth, screenHeight, renderer, &eventManager);
         running = true;
     }
 }
@@ -51,11 +50,6 @@ void Application::handleEvents() {
     }
 }
 
-// Update logic
-void Application::update() {
-    // Handle resizing and interaction logic
-}
-
 // Render the frame
 void Application::render() {
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red (easy to find problems)
@@ -71,10 +65,26 @@ void Application::render() {
 
 // Main Application loop
 void Application::run() {
+    const int targetFrameTime = 1000 / 60;  // 16.67 ms per frame for 60 FPS
+    Uint32 frameStart, frameEnd, frameDuration;
+
     while (running) {
-        handleEvents();
-        update();
-        render();
-        SDL_Delay(16); // Simulate ~60 FPS
+        // Record the time at the start of the frame
+        frameStart = SDL_GetTicks();
+
+        handleEvents(); // Process input events
+        render();       // Render everything
+
+        // Record the time at the end of the frame
+        frameEnd = SDL_GetTicks();
+
+        // Calculate how long the frame took
+        frameDuration = frameEnd - frameStart;
+
+        // If the frame took less time than the target frame duration, delay the difference
+        if (frameDuration < targetFrameTime) {
+            SDL_Delay(targetFrameTime - frameDuration);
+        }
+        // If the frame took longer, we don't delay and the game continues running
     }
 }

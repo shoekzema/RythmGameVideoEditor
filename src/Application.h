@@ -11,11 +11,11 @@ public:
 private:
     bool init();
     void handleEvents();
-    void update();
     void render();
 
     SDL_Window* window;
     SDL_Renderer* renderer;
+    EventManager eventManager;
     bool running;
     int screenWidth, screenHeight;
 

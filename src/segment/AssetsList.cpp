@@ -1,9 +1,9 @@
 #include "Segment.h"
 
 // Constructor
-AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color)
-    : Segment(x, y, w, h, renderer, color), codec(nullptr), codecContext(nullptr), formatContext(nullptr), frame(nullptr), rgbFrame(nullptr), 
-    swsContext(nullptr), videoStreamIndex(0), videoFrameTexture(nullptr) {}
+AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, color), codec(nullptr), codecContext(nullptr), formatContext(nullptr), frame(nullptr), rgbFrame(nullptr), 
+    swsContext(nullptr), videoStreamIndex(0), videoFrameTexture(nullptr) { }
 
 // Destructor to clean up textures
 AssetsList::~AssetsList() {
@@ -42,6 +42,15 @@ void AssetsList::handleEvent(SDL_Event& event) {
     switch (event.type) {
     case SDL_MOUSEBUTTONDOWN:
         if (event.button.button == SDL_BUTTON_LEFT) {
+            // Check if the click is within the bounds of the thumbnail
+            int mouseX = event.button.x;
+            int mouseY = event.button.y;
+            if (mouseX >= rect.x && mouseX <= rect.x + rect.w &&
+                mouseY >= rect.y && mouseY <= rect.y + rect.h) 
+            {
+                // Broadcast a video selected event
+                eventManager->emit(EventType::VideoSelected, currentVideoFile);
+            }
         }
         break;
 
@@ -52,6 +61,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
         const char* droppedFile = event.drop.file;
         loadVideo(droppedFile);
         videoFrameTexture = getFrameTexture(droppedFile);
+        currentVideoFile = droppedFile;
         SDL_free(event.drop.file);
         break;
     }

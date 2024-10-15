@@ -1,12 +1,12 @@
 #include "Segment.h"
 
 // Segment constructor
-SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color)
-    : Segment(x, y, w, h, renderer, color), draggingDivider(false), resizing(false) 
+SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false) 
 {
     divider = { x, y + h / 2 - dividerThickness / 2, w, dividerThickness };
-    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, color);
-    bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, color);
+    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, eventManager, color);
+    bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager, color);
 }
 
 // Segment destructor

@@ -2,12 +2,6 @@
 
 // Function to convert a char* (UTF-8) to std::wstring (UTF-16)
 std::wstring to_wstring(const char* str) {
-    //std::wostringstream wstm;
-    //const std::ctype<wchar_t>& ctfacet = use_facet<std::ctype<wchar_t>>(wstm.getloc());
-    //for (size_t i = 0; i < strlen(str); ++i)
-    //    wstm << ctfacet.widen(str[i]);
-    //return wstm.str();
-
     std::mbstate_t state = std::mbstate_t();
     std::size_t len = 1 + std::mbsrtowcs(nullptr, &str, 0, &state); // Get length required
     std::wstring wstr(len, L'\0');  // Reserve space for wide string

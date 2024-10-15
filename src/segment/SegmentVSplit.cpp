@@ -1,12 +1,12 @@
 #include "Segment.h"
 
 // Segment constructor
-SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color)
-    : Segment(x, y, w, h, renderer, color), draggingDivider(false), resizing(false)
+SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false)
 {
     divider = { x + w / 2 - dividerThickness / 2, y, dividerThickness, h };
-    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer);
-    rightSegment = new Segment(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, color);
+    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager);
+    rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager);
 }
 
 // Segment destructor

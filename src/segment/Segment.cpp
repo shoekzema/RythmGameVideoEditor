@@ -1,8 +1,8 @@
 #include "Segment.h"
 
 // Segment constructor
-Segment::Segment(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color)
-    : renderer(renderer), rect({ x, y, w, h }), color(color) { }
+Segment::Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
+    : renderer(renderer), eventManager(eventManager), rect({ x, y, w, h }), color(color) { }
 
 // Segment destructor
 Segment::~Segment() {

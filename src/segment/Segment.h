@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 #include "util.h"
+#include "EventManager.h"
+
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -14,7 +16,7 @@ extern "C" {
 
 class Segment {
 public:
-    Segment(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color = { 0, 0, 255, 255 }); // blue (easy to find problems)
+    Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 255, 255 }); // blue (easy to find problems)
     virtual ~Segment();
 
     // Render the segment
@@ -29,13 +31,14 @@ public:
     SDL_Rect rect;
 protected:
     SDL_Renderer* renderer;
+    EventManager* eventManager;
     SDL_Color color;
 };
 
 
 class SegmentHSplit : public Segment {
 public:
-    SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color = { 0, 0, 0, 255 });
+    SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
     ~SegmentHSplit();
 
     // Render the segment
@@ -63,7 +66,7 @@ private:
 
 class SegmentVSplit : public Segment {
 public:
-    SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color = { 0, 0, 0, 255 });
+    SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
     ~SegmentVSplit();
 
     // Render the segment
@@ -92,22 +95,22 @@ private:
 class AssetsList : public Segment {
 public:
     // Constructor
-    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, SDL_Color color = { 0, 0, 255, 255 });
+    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
 
     // Destructor
-    virtual ~AssetsList();
+    ~AssetsList();
 
     // Add a video and create a thumbnail (for now, static image)
     void addAsset(const char* filename);
 
     // Render the thumbnails
-    virtual void render() override;
+    void render() override;
 
     // Handle events such as mouse clicks and drag-and-drop
-    virtual void handleEvent(SDL_Event& event) override;
+    void handleEvent(SDL_Event& event) override;
 
     // Update the container dimensions
-    virtual void update(int x, int y, int w, int h) override;
+    void update(int x, int y, int w, int h) override;
 
 private:
     AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
@@ -118,6 +121,7 @@ private:
     SwsContext* swsContext; // Used for converting the frame to the desired format (e.g., YUV to RGB).
     int videoStreamIndex; // The index of the video stream (because a file might have multiple streams).
     SDL_Texture* videoFrameTexture; // The texture to render
+    std::string currentVideoFile;
 
     // Load a video file
     bool loadVideo(const char* filepath);
@@ -133,4 +137,43 @@ private:
 
     // Return a Texture for a video thumbail
     SDL_Texture* getWindowsThumbnail(const wchar_t* wfilepath);
+};
+
+
+class VideoPlayer : public Segment {
+public:
+    // Constructor
+    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 255, 255 });
+
+    // Destructor
+    ~VideoPlayer();
+
+    // Render the thumbnails
+    void render() override;
+
+    // Handle events such as mouse clicks and drag-and-drop
+    void handleEvent(SDL_Event& event) override;
+
+    // Update the container dimensions
+    void update(int x, int y, int w, int h) override;
+private:
+    AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
+    AVCodecContext* codecContext; // Manages decoding of the video stream.
+    const AVCodec* codec; // A specific codec for decoding video (e.g., H.264).
+    AVFrame* frame; // Holds decoded video frame data.
+    AVFrame* rgbFrame; // Holds video frame data converted to RGB format for easier processing.
+    SwsContext* swsContext; // Used for converting the frame to the desired format (e.g., YUV to RGB).
+    int videoStreamIndex; // The index of the video stream (because a file might have multiple streams).
+    SDL_Texture* videoTexture; // Texture for the video frame
+
+    bool playing = false;
+    Uint32 lastFrameTime = 0;      // The time when the last frame was updated
+    double frameDurationMs = 0;    // Time per video frame in milliseconds
+
+    void loadAndPlayVideo(const char* videoPath);
+    bool loadVideo(const char* filename);
+    void playVideo();
+
+    AVFrame* getNextFrame();
+    void updateTextureFromFrame(AVFrame* frame);
 };
