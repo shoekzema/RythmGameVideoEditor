@@ -34,8 +34,14 @@ void VideoPlayer::playVideo() {
 // Render the thumbnails
 void VideoPlayer::render() {
     if (!playing) {
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-        SDL_RenderFillRect(renderer, &rect); // Draw background
+        if (videoTexture) {
+            // Render last video frame texture
+            SDL_RenderCopy(renderer, videoTexture, NULL, &rect);
+        }
+        else {
+            SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+            SDL_RenderFillRect(renderer, &rect); // Draw background
+        }
     }
     else {
         // Get current time
@@ -113,6 +119,13 @@ void VideoPlayer::handleEvent(SDL_Event& event) {
     switch (event.type) {
     case SDL_MOUSEBUTTONDOWN:
         if (event.button.button == SDL_BUTTON_LEFT) {
+            SDL_Point mouseButton = { event.button.x, event.button.y };
+
+            // If not in this Segment, we ignore it 
+            if (SDL_PointInRect(&mouseButton, &rect)) {
+                if (playing) playing = false;
+                else playing = true;
+            }
         }
         break;
     }

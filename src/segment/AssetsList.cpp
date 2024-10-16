@@ -31,12 +31,10 @@ void AssetsList::handleEvent(SDL_Event& event) {
     switch (event.type) {
     case SDL_MOUSEBUTTONDOWN:
         if (event.button.button == SDL_BUTTON_LEFT) {
-            // Check if the click is within the bounds of the thumbnail
-            int mouseX = event.button.x;
-            int mouseY = event.button.y;
-            if (mouseX >= rect.x && mouseX <= rect.x + rect.w &&
-                mouseY >= rect.y && mouseY <= rect.y + rect.h) 
-            {
+            SDL_Point mouseButton = { event.button.x, event.button.y };
+
+            // If not in this Segment, we ignore it 
+            if (SDL_PointInRect(&mouseButton, &rect)) {
                 // Broadcast the VideoData object to other segments
                 eventManager->emit(EventType::VideoSelected, videoData);
             }

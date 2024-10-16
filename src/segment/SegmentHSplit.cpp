@@ -46,7 +46,9 @@ void SegmentHSplit::handleEvent(SDL_Event& event) {
     }
     else if (event.type == SDL_MOUSEMOTION) {
         SDL_Point mouseMotion = { event.motion.x, event.motion.y };
-        if (SDL_PointInRect(&mouseMotion, &rect)) { // Not in this Segment, so we ignore it 
+
+        // If not in this Segment, we ignore it 
+        if (SDL_PointInRect(&mouseMotion, &rect)) {
             if (draggingDivider) {
                 // Resize the segments dynamically by dragging the divider
                 int newMiddle = std::max(dividerThickness/2, std::min(event.motion.y, appWindowSizeY - dividerThickness/2)) - rect.y - divider.h / 2;

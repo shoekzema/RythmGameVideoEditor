@@ -1,18 +1,9 @@
 #pragma once
 #include <SDL.h>
-#include <SDL_image.h>
 #include <iostream>
-#include <vector>
-#include <string>
 #include "util.h"
 #include "EventManager.h"
 
-extern "C" {
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
-#include <libavutil/imgutils.h>
-}
 
 class Segment {
 public:
@@ -136,7 +127,7 @@ private:
 class VideoPlayer : public Segment {
 public:
     // Constructor
-    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 255, 255 });
+    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
 
     // Destructor
     ~VideoPlayer();
