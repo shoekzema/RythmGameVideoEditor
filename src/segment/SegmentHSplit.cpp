@@ -29,7 +29,7 @@ void SegmentHSplit::render() {
 // Update the position and size of the segment
 void SegmentHSplit::update(int x, int y, int w, int h) {
     int heightDiff = rect.h - h;
-    int heightChange = heightDiff / (rect.h / (float)topSegment->rect.h);
+    int heightChange = (int)(heightDiff / (rect.h / (float)topSegment->rect.h));
     topSegment   ->update(x, y,                  w, topSegment->rect.h - heightChange);
     bottomSegment->update(x, topSegment->rect.h, w, h - topSegment->rect.h);
     divider = { x, divider.y - heightChange, w, dividerThickness };

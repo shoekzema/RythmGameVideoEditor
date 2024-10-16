@@ -2,24 +2,13 @@
 
 // Constructor
 AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, color), codec(nullptr), codecContext(nullptr), formatContext(nullptr), frame(nullptr), rgbFrame(nullptr), 
-    swsContext(nullptr), videoStreamIndex(0), videoFrameTexture(nullptr) { }
+    : Segment(x, y, w, h, renderer, eventManager, color), videoData(new VideoData()), videoFrameTexture(nullptr) { }
 
 // Destructor to clean up textures
 AssetsList::~AssetsList() {
-    // Free the frames
-    av_frame_free(&frame);
-    av_frame_free(&rgbFrame);
-
-    // Close codec and free context
-    avcodec_free_context(&codecContext);
-
-    // Close format context
-    avformat_close_input(&formatContext);
-
+    if (videoData) delete videoData;
     if (videoFrameTexture) SDL_DestroyTexture(videoFrameTexture);
 }
-
 
 // Add a video and generate a thumbnail (for now, using a static image)
 void AssetsList::addAsset(const char* filename) {
@@ -48,8 +37,8 @@ void AssetsList::handleEvent(SDL_Event& event) {
             if (mouseX >= rect.x && mouseX <= rect.x + rect.w &&
                 mouseY >= rect.y && mouseY <= rect.y + rect.h) 
             {
-                // Broadcast a video selected event
-                eventManager->emit(EventType::VideoSelected, currentVideoFile);
+                // Broadcast the VideoData object to other segments
+                eventManager->emit(EventType::VideoSelected, videoData);
             }
         }
         break;
@@ -61,7 +50,6 @@ void AssetsList::handleEvent(SDL_Event& event) {
         const char* droppedFile = event.drop.file;
         loadVideo(droppedFile);
         videoFrameTexture = getFrameTexture(droppedFile);
-        currentVideoFile = droppedFile;
         SDL_free(event.drop.file);
         break;
     }
@@ -79,48 +67,54 @@ void AssetsList::update(int x, int y, int w, int h) {
  */
 bool AssetsList::loadVideo(const char* filename) {
     // Open the file and reads its header, populating formatContext.
-    formatContext = avformat_alloc_context();
-    if (avformat_open_input(&formatContext, filename, NULL, NULL) != 0) { 
+    videoData->formatContext = avformat_alloc_context();
+    if (avformat_open_input(&videoData->formatContext, filename, NULL, NULL) != 0) {
         return false;  // Couldn't open the video file
     }
 
     // Find information about streams (audio, video) within the file.
-    if (avformat_find_stream_info(formatContext, NULL) < 0) {
+    if (avformat_find_stream_info(videoData->formatContext, NULL) < 0) {
         return false;  // Couldn't find stream info
     }
 
     // Find the first video stream index
-    videoStreamIndex = -1;
-    for (unsigned int i = 0; i < formatContext->nb_streams; i++) {
-        if (formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-            videoStreamIndex = i;
+    videoData->videoStreamIndex = -1;
+    for (unsigned int i = 0; i < videoData->formatContext->nb_streams; i++) {
+        if (videoData->formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+            videoData->videoStreamIndex = i;
             break;
         }
     }
 
-    if (videoStreamIndex == -1) {
+    if (videoData->videoStreamIndex == -1) {
         return false;  // Couldn't find a video stream
     }
 
     // Get the codec and set up the codec context
-    AVCodecParameters* codecParams = formatContext->streams[videoStreamIndex]->codecpar;
-    codec = avcodec_find_decoder(codecParams->codec_id);
+    AVCodecParameters* codecParams = videoData->formatContext->streams[videoData->videoStreamIndex]->codecpar;
+    const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id); // A specific codec for decoding video (e.g., H.264).
     if (!codec) {
         return false;  // Codec not found
     }
 
     // Allocate and set up the codec context.
-    codecContext = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(codecContext, codecParams);
+    videoData->codecContext = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(videoData->codecContext, codecParams);
 
     // Open the codec for decoding.
-    if (avcodec_open2(codecContext, codec, NULL) < 0) {
+    if (avcodec_open2(videoData->codecContext, codec, NULL) < 0) {
         return false;  // Couldn't open codec
     }
 
     // Allocate memory for video frames for decoded video and converted RGB format
-    frame = av_frame_alloc();
-    rgbFrame = av_frame_alloc();
+    videoData->frame = av_frame_alloc();
+    videoData->rgbFrame = av_frame_alloc();
+
+    // Set up SwsContext for frame conversion (YUV -> RGB)
+    // Initializes the scaling / conversion context, used to convert the decoded frame(YUV format) to RGB format.
+    videoData->swsContext = sws_getContext(videoData->codecContext->width, videoData->codecContext->height, videoData->codecContext->pix_fmt,
+        videoData->codecContext->width, videoData->codecContext->height, AV_PIX_FMT_RGB24,
+        SWS_BILINEAR, NULL, NULL, NULL);
 
     return true;  // Successfully loaded the video
 }
@@ -131,31 +125,25 @@ AVFrame* AssetsList::getFrame(int frameIndex) {
     int currentFrame = 0;
 
     // Read packets from the media file. Each packet corresponds to a small chunk of data (e.g., a frame).
-    while (av_read_frame(formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoStreamIndex) {
+    while (av_read_frame(videoData->formatContext, &packet) >= 0) {
+        if (packet.stream_index == videoData->videoStreamIndex) {
             // Send the packet to the codec for decoding
-            avcodec_send_packet(codecContext, &packet);
+            avcodec_send_packet(videoData->codecContext, &packet);
 
             // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(codecContext, frame);
+            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
             if (ret >= 0) {
                 if (currentFrame == frameIndex) {
                     // Convert the frame to RGB
-                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, codecContext->width, codecContext->height, 1);
+                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
                     uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
 
-                    // Set up SwsContext for frame conversion (YUV -> RGB)
-                    // Initializes the scaling / conversion context, used to convert the decoded frame(YUV format) to RGB format.
-                    swsContext = sws_getContext(codecContext->width, codecContext->height, codecContext->pix_fmt,
-                        codecContext->width, codecContext->height, AV_PIX_FMT_RGB24,
-                        SWS_BILINEAR, NULL, NULL, NULL);
-
                     // Perform the conversion to RGB.
-                    av_image_fill_arrays(rgbFrame->data, rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, codecContext->width, codecContext->height, 1);
-                    sws_scale(swsContext, frame->data, frame->linesize, 0, codecContext->height, rgbFrame->data, rgbFrame->linesize);
+                    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
+                    sws_scale(videoData->swsContext, videoData->frame->data, videoData->frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
 
                     av_packet_unref(&packet);
-                    return rgbFrame;  // Return the RGB frame
+                    return videoData->rgbFrame;  // Return the RGB frame
                 }
                 currentFrame++;
             }

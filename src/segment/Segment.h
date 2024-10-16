@@ -113,15 +113,8 @@ public:
     void update(int x, int y, int w, int h) override;
 
 private:
-    AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
-    AVCodecContext* codecContext; // Manages decoding of the video stream.
-    const AVCodec* codec; // A specific codec for decoding video (e.g., H.264).
-    AVFrame* frame; // Holds decoded video frame data.
-    AVFrame* rgbFrame; // Holds video frame data converted to RGB format for easier processing.
-    SwsContext* swsContext; // Used for converting the frame to the desired format (e.g., YUV to RGB).
-    int videoStreamIndex; // The index of the video stream (because a file might have multiple streams).
     SDL_Texture* videoFrameTexture; // The texture to render
-    std::string currentVideoFile;
+    VideoData* videoData; // Holds all VideoData that ffmpeg needs to processing
 
     // Load a video file
     bool loadVideo(const char* filepath);
@@ -157,21 +150,14 @@ public:
     // Update the container dimensions
     void update(int x, int y, int w, int h) override;
 private:
-    AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
-    AVCodecContext* codecContext; // Manages decoding of the video stream.
-    const AVCodec* codec; // A specific codec for decoding video (e.g., H.264).
-    AVFrame* frame; // Holds decoded video frame data.
-    AVFrame* rgbFrame; // Holds video frame data converted to RGB format for easier processing.
-    SwsContext* swsContext; // Used for converting the frame to the desired format (e.g., YUV to RGB).
-    int videoStreamIndex; // The index of the video stream (because a file might have multiple streams).
     SDL_Texture* videoTexture; // Texture for the video frame
+    VideoData* videoData; // Holds pointers to all VideoData for ffmpeg to be able to read frames
 
     bool playing = false;
     Uint32 lastFrameTime = 0;      // The time when the last frame was updated
     double frameDurationMs = 0;    // Time per video frame in milliseconds
 
-    void loadAndPlayVideo(const char* videoPath);
-    bool loadVideo(const char* filename);
+    void loadAndPlayVideo(VideoData* videoData);
     void playVideo();
 
     AVFrame* getNextFrame();
