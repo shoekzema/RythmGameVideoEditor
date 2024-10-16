@@ -5,7 +5,7 @@
 #include <string>
 #include <sstream>
 
-const int appWindowSizeX = 1280;
-const int appWindowSizeY = 800;
+static int appWindowSizeX = 1280;
+static int appWindowSizeY = 800;
 
 std::wstring to_wstring(const char* str);

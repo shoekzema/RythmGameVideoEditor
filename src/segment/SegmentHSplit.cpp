@@ -5,8 +5,8 @@ SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer,
     : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false) 
 {
     divider = { x, y + h / 2 - dividerThickness / 2, w, dividerThickness };
-    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, eventManager, color);
-    bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager, color);
+    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, eventManager);
+    bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager);
 }
 
 // Segment destructor
@@ -17,6 +17,8 @@ SegmentHSplit::~SegmentHSplit() {
 
 // Render the segment and its split children
 void SegmentHSplit::render() {
+    Segment::render();
+
     topSegment->render();
     bottomSegment->render();
 
@@ -26,11 +28,12 @@ void SegmentHSplit::render() {
 
 // Update the position and size of the segment
 void SegmentHSplit::update(int x, int y, int w, int h) {
-    Segment::update(x, y, w, h);
-    int heightDiff = h - rect.h;
-    topSegment   ->update(x, y,                  w, topSegment->rect.h - heightDiff / 2);
+    int heightDiff = rect.h - h;
+    int heightChange = heightDiff / (rect.h / (float)topSegment->rect.h);
+    topSegment   ->update(x, y,                  w, topSegment->rect.h - heightChange);
     bottomSegment->update(x, topSegment->rect.h, w, h - topSegment->rect.h);
-    divider = { x, divider.y - heightDiff / 2, w, dividerThickness };
+    divider = { x, divider.y - heightChange, w, dividerThickness };
+    Segment::update(x, y, w, h);
 }
 
 // Handle user events
@@ -46,7 +49,7 @@ void SegmentHSplit::handleEvent(SDL_Event& event) {
         if (SDL_PointInRect(&mouseMotion, &rect)) { // Not in this Segment, so we ignore it 
             if (draggingDivider) {
                 // Resize the segments dynamically by dragging the divider
-                int newMiddle = std::max(0, std::min(event.motion.y, appWindowSizeY)) - rect.y - divider.h / 2;
+                int newMiddle = std::max(dividerThickness/2, std::min(event.motion.y, appWindowSizeY - dividerThickness/2)) - rect.y - divider.h / 2;
                 divider.y = newMiddle;
                 topSegment   ->update(topSegment   ->rect.x, topSegment->rect.y, topSegment   ->rect.w, newMiddle);
                 bottomSegment->update(bottomSegment->rect.x, newMiddle,          bottomSegment->rect.w, rect.h - newMiddle);

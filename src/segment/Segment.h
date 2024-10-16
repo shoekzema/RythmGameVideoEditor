@@ -16,7 +16,7 @@ extern "C" {
 
 class Segment {
 public:
-    Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 255, 255 }); // blue (easy to find problems)
+    Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
     virtual ~Segment();
 
     // Render the segment
@@ -38,7 +38,7 @@ protected:
 
 class SegmentHSplit : public Segment {
 public:
-    SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentHSplit();
 
     // Render the segment
@@ -66,7 +66,7 @@ private:
 
 class SegmentVSplit : public Segment {
 public:
-    SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentVSplit();
 
     // Render the segment

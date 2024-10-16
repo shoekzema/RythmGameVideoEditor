@@ -21,7 +21,7 @@ bool Application::init() {
         std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
         return false;
     }
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
         std::cerr << "Failed to create renderer: " << SDL_GetError() << std::endl;
         return false;
@@ -43,6 +43,16 @@ void Application::handleEvents() {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             running = false;
+        }
+        else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+            int newWidth = event.window.data1;
+            int newHeight = event.window.data2;
+
+            appWindowSizeX = newWidth;
+            appWindowSizeY = newHeight;
+
+            // Handle the window resize
+            rootSegment->update(0, 0, newWidth, newHeight);
         }
         else if (rootSegment) {
             rootSegment->handleEvent(event);

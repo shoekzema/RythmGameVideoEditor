@@ -26,11 +26,12 @@ void SegmentVSplit::render() {
 
 // Update the position and size of the segment
 void SegmentVSplit::update(int x, int y, int w, int h) {
+    int widthDiff = rect.w - w;
+    int widthChange = widthDiff / (rect.w / (float)leftSegment->rect.w);
+    leftSegment ->update(x,                   y, leftSegment->rect.w - widthChange, h);
+    rightSegment->update(leftSegment->rect.w, y, w - leftSegment->rect.w,           h);
+    divider = { divider.x - widthChange, y, dividerThickness, h };
     Segment::update(x, y, w, h);
-    int widthDiff = w - rect.w;
-    leftSegment ->update(x,                   y, leftSegment->rect.w - widthDiff / 2, h);
-    rightSegment->update(leftSegment->rect.w, y, w - leftSegment->rect.w,             h);
-    divider = { divider.x - widthDiff / 2, y, dividerThickness, h };
 }
 
 // Handle user events
@@ -46,7 +47,7 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
         if (SDL_PointInRect(&mouseMotion, &rect)) { // Not in this Segment, so we ignore it 
             if (draggingDivider) {
                 // Resize the segments dynamically by dragging the divider
-                int newMiddle = std::max(0, std::min(event.motion.x, appWindowSizeX)) - rect.x - divider.w / 2;
+                int newMiddle = std::max(dividerThickness/2, std::min(event.motion.x, appWindowSizeX - dividerThickness/2)) - rect.x - divider.w / 2;
                 divider.x = newMiddle;
                 leftSegment->update(leftSegment->rect.x, leftSegment->rect.y, newMiddle, leftSegment->rect.h);
                 rightSegment->update(newMiddle, rightSegment->rect.y, rect.w - newMiddle, rightSegment->rect.h);
