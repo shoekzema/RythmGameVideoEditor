@@ -1,6 +1,5 @@
 #include "Segment.h"
 
-// Segment constructor
 SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false) 
 {
@@ -9,13 +8,11 @@ SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer,
     bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager);
 }
 
-// Segment destructor
 SegmentHSplit::~SegmentHSplit() {
     if (topSegment) delete topSegment;
     if (bottomSegment) delete bottomSegment;
 }
 
-// Render the segment and its split children
 void SegmentHSplit::render() {
     Segment::render();
 
@@ -26,7 +23,6 @@ void SegmentHSplit::render() {
     SDL_RenderFillRect(renderer, &divider);
 }
 
-// Update the position and size of the segment
 void SegmentHSplit::update(int x, int y, int w, int h) {
     int heightDiff = rect.h - h;
     int heightChange = (int)(heightDiff / (rect.h / (float)topSegment->rect.h));
@@ -36,7 +32,6 @@ void SegmentHSplit::update(int x, int y, int w, int h) {
     Segment::update(x, y, w, h);
 }
 
-// Handle user events
 void SegmentHSplit::handleEvent(SDL_Event& event) {
     if (event.type == SDL_MOUSEBUTTONDOWN) {
         SDL_Point mousePoint = { event.button.x, event.button.y };

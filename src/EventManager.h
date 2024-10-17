@@ -10,11 +10,12 @@ extern "C" {
 #include <libavutil/imgutils.h>
 }
 
+// Type of event to emit or subscribe to
 enum class EventType {
     VideoSelected,
-    VideoStopped,
 };
 
+// Structure holding all preprocessed ffmpeg data to be able to quickly process videos
 struct VideoData {
     AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
     AVCodecContext* codecContext; // Manages decoding of the video stream.
@@ -40,6 +41,10 @@ struct VideoData {
     }
 };
 
+/**
+ * @class Eventmanager
+ * @brief Manages communication between classes using events. Classes can emit event signals or subscribe to a event listener.
+ */
 class EventManager {
 public:
     using EventCallback = std::function<void(VideoData*)>;

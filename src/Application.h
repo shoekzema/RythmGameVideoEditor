@@ -6,11 +6,18 @@ class Application {
 public:
     Application(int width, int height);
     ~Application();
+
+    // Main Application loop
     void run();
 
 private:
+    // Initialize SDL and create window/renderer
     bool init();
+
+    // Handle user interaction events
     void handleEvents();
+
+    // Render the window and all active segments
     void render();
 
     SDL_Window* window;

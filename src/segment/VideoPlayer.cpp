@@ -1,6 +1,5 @@
 #include "Segment.h"
 
-// Constructor
 VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, color), videoData(nullptr), videoTexture(nullptr)
 {
@@ -10,7 +9,6 @@ VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, Eve
     });
 }
 
-// Destructor to clean up textures
 VideoPlayer::~VideoPlayer() {
 }
 
@@ -31,7 +29,6 @@ void VideoPlayer::playVideo() {
     playing = true;
 }
 
-// Render the thumbnails
 void VideoPlayer::render() {
     if (!playing) {
         if (videoTexture) {
@@ -62,7 +59,6 @@ void VideoPlayer::render() {
     }
 }
 
-// Get the next frame in the video
 AVFrame* VideoPlayer::getNextFrame() {
     AVPacket packet;
     int frameFinished = 0;
@@ -114,7 +110,6 @@ void VideoPlayer::updateTextureFromFrame(AVFrame* frame) {
     SDL_UnlockTexture(videoTexture);
 }
 
-// Handle events like clicks
 void VideoPlayer::handleEvent(SDL_Event& event) {
     switch (event.type) {
     case SDL_MOUSEBUTTONDOWN:
@@ -131,7 +126,6 @@ void VideoPlayer::handleEvent(SDL_Event& event) {
     }
 }
 
-// Handle resizing of the container
 void VideoPlayer::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }

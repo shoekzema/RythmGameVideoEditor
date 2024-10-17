@@ -1,6 +1,5 @@
 #include "Application.h"
 
-// Application constructor
 Application::Application(int width, int height)
     : window(nullptr), renderer(nullptr), running(false),
     screenWidth(width), screenHeight(height) {
@@ -10,7 +9,6 @@ Application::Application(int width, int height)
     }
 }
 
-// Initialize SDL and create window/renderer
 bool Application::init() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
@@ -29,7 +27,6 @@ bool Application::init() {
     return true;
 }
 
-// Application destructor
 Application::~Application() {
     if (rootSegment) delete rootSegment;
     if (renderer) SDL_DestroyRenderer(renderer);
@@ -37,7 +34,6 @@ Application::~Application() {
     SDL_Quit();
 }
 
-// Handle user events
 void Application::handleEvents() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -60,7 +56,6 @@ void Application::handleEvents() {
     }
 }
 
-// Render the frame
 void Application::render() {
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red (easy to find problems)
     SDL_RenderClear(renderer);
@@ -73,7 +68,6 @@ void Application::render() {
     SDL_RenderPresent(renderer);
 }
 
-// Main Application loop
 void Application::run() {
     const int targetFrameTime = 1000 / 60;  // 16.67 ms per frame for 60 FPS
     Uint32 frameStart, frameEnd, frameDuration;

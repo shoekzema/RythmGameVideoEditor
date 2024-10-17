@@ -1,21 +1,13 @@
 #include "Segment.h"
 
-// Constructor
 AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, color), videoData(new VideoData()), videoFrameTexture(nullptr) { }
 
-// Destructor to clean up textures
 AssetsList::~AssetsList() {
     if (videoData) delete videoData;
     if (videoFrameTexture) SDL_DestroyTexture(videoFrameTexture);
 }
 
-// Add a video and generate a thumbnail (for now, using a static image)
-void AssetsList::addAsset(const char* filename) {
-    loadVideo(filename);
-}
-
-// Render the thumbnails
 void AssetsList::render() {
     if (videoFrameTexture) {
         SDL_RenderCopy(renderer, videoFrameTexture, NULL, &rect);
@@ -26,7 +18,6 @@ void AssetsList::render() {
     }
 }
 
-// Handle events like clicks and drag-and-drop
 void AssetsList::handleEvent(SDL_Event& event) {
     switch (event.type) {
     case SDL_MOUSEBUTTONDOWN:
@@ -54,15 +45,10 @@ void AssetsList::handleEvent(SDL_Event& event) {
     }
 }
 
-// Handle resizing of the container
 void AssetsList::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
-/**
- * @brief Opens the video file, finds the stream with video data and set up the codec context to decode video.
- * @param filename The path to the file.
- */
 bool AssetsList::loadVideo(const char* filename) {
     // Open the file and reads its header, populating formatContext.
     videoData->formatContext = avformat_alloc_context();
@@ -154,14 +140,16 @@ AVFrame* AssetsList::getFrame(int frameIndex) {
 
 int AssetsList::getFrameCount()
 {
-    return 0;
+    return 0; // TODO
 }
 
 SDL_Texture* AssetsList::getFrameTexture(const char* filepath) {
 #ifdef _WIN32
+    // If on a windows machine, get the same thumbnail as windows shows
     std::wstring wideFilePath = to_wstring(filepath);
     return getWindowsThumbnail(wideFilePath.c_str());
 #else
+    // If not on a windows machine, get the first video frame and use it as a thumbnail
     AVFrame* frame = getFrame(0);  // Get the first frame
     if (!frame) {
         return nullptr;
@@ -192,10 +180,8 @@ SDL_Texture* AssetsList::getFrameTexture(const char* filepath) {
 
 #ifdef _WIN32
 
-#include <Windows.h>
-#include <Shlwapi.h>
-#include <Shobjidl.h>
-#include <comdef.h>  // For COM error handling
+#include <Shobjidl.h> // Windows shell (explorer) library
+#include <comdef.h> // For COM error handling
 
 SDL_Texture* AssetsList::getWindowsThumbnail(const wchar_t* wfilepath) {
     HRESULT hr;
