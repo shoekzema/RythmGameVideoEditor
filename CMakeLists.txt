@@ -12,7 +12,6 @@ endif()
 project ("RythmGameVideoEditor")
 
 
-
 # Include directories for headers
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
@@ -27,7 +26,7 @@ set(SOURCES
 
 
 # Add source to this project's executable.
-add_executable (RythmGameVideoEditor "src/VideoDecoder.h" "src/VideoDecoder.cpp" "src/VideoRenderer.h" "src/VideoRenderer.cpp" "src/VideoPlayer.h" "src/VideoPlayer.cpp" "src/main.cpp" "src/Frame.h")
+add_executable (RythmGameVideoEditor         "src/main.cpp"  "src/Application.h" "src/Application.cpp" "src/segment/Segment.h" "src/segment/Segment.cpp" "src/segment/SegmentHSplit.cpp" "src/segment/SegmentVSplit.cpp" "src/util.h" "src/segment/AssetsList.cpp" "src/util.cpp" "src/segment/VideoPlayer.cpp")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET RythmGameVideoEditor PROPERTY CXX_STANDARD 20)
