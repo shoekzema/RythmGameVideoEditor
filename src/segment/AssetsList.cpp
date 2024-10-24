@@ -45,6 +45,33 @@ void AssetsList::handleEvent(SDL_Event& event) {
     }
 }
 
+VideoData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
+    // Retrieve the asset corresponding to the mouse position
+    // TODO: (You will have a list or array of assets in the AssetList class)
+    return videoData;
+}
+
+double AssetsList::getVideoDuration() {
+    if (!videoData->formatContext) {
+        return 0.0;  // Return 0 if the asset or format context is invalid
+    }
+
+    // FFmpeg stores the duration in AVFormatContext::duration in AV_TIME_BASE units
+    int64_t durationInMicroseconds = videoData->formatContext->duration;
+
+    // Convert to seconds: AV_TIME_BASE is 1,000,000 (microseconds per second)
+    double durationInSeconds = (double)durationInMicroseconds / AV_TIME_BASE;
+
+    return durationInSeconds;
+}
+
+Segment* AssetsList::findTypeImpl(const std::type_info& type) {
+    if (type == typeid(AssetsList)) {
+        return this;
+    }
+    return nullptr;
+}
+
 void AssetsList::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
@@ -61,17 +88,25 @@ bool AssetsList::loadVideo(const char* filename) {
         return false;  // Couldn't find stream info
     }
 
-    // Find the first video stream index
+    // Find the first video and audio stream index
     videoData->videoStreamIndex = -1;
+    videoData->audioStreamIndex = -1;
+
     for (unsigned int i = 0; i < videoData->formatContext->nb_streams; i++) {
-        if (videoData->formatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+        AVMediaType codecType = videoData->formatContext->streams[i]->codecpar->codec_type;
+        if (codecType == AVMEDIA_TYPE_VIDEO && videoData->videoStreamIndex == -1) {
             videoData->videoStreamIndex = i;
-            break;
+        }
+        if (codecType == AVMEDIA_TYPE_AUDIO && videoData->audioStreamIndex == -1) {
+            videoData->audioStreamIndex = i;
         }
     }
 
     if (videoData->videoStreamIndex == -1) {
         return false;  // Couldn't find a video stream
+    }
+    if (videoData->audioStreamIndex == -1) {
+        return false;  // Couldn't find an audio stream
     }
 
     // Get the codec and set up the codec context
@@ -82,11 +117,11 @@ bool AssetsList::loadVideo(const char* filename) {
     }
 
     // Allocate and set up the codec context.
-    videoData->codecContext = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(videoData->codecContext, codecParams);
+    videoData->videoCodecContext = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(videoData->videoCodecContext, codecParams);
 
     // Open the codec for decoding.
-    if (avcodec_open2(videoData->codecContext, codec, NULL) < 0) {
+    if (avcodec_open2(videoData->videoCodecContext, codec, NULL) < 0) {
         return false;  // Couldn't open codec
     }
 
@@ -96,9 +131,29 @@ bool AssetsList::loadVideo(const char* filename) {
 
     // Set up SwsContext for frame conversion (YUV -> RGB)
     // Initializes the scaling / conversion context, used to convert the decoded frame(YUV format) to RGB format.
-    videoData->swsContext = sws_getContext(videoData->codecContext->width, videoData->codecContext->height, videoData->codecContext->pix_fmt,
-        videoData->codecContext->width, videoData->codecContext->height, AV_PIX_FMT_RGB24,
+    videoData->swsContext = sws_getContext(videoData->videoCodecContext->width, videoData->videoCodecContext->height, videoData->videoCodecContext->pix_fmt,
+        videoData->videoCodecContext->width, videoData->videoCodecContext->height, AV_PIX_FMT_RGB24,
         SWS_BILINEAR, NULL, NULL, NULL);
+
+
+    // Set up the audio codec and context
+    AVCodecParameters* audioCodecParams = videoData->formatContext->streams[videoData->audioStreamIndex]->codecpar;
+    const AVCodec* audioCodec = avcodec_find_decoder(audioCodecParams->codec_id);
+    if (!audioCodec) {
+        return false;  // Audio codec not found
+    }
+
+    // Allocate and set up the audio codec context
+    videoData->audioCodecContext = avcodec_alloc_context3(audioCodec);
+    avcodec_parameters_to_context(videoData->audioCodecContext, audioCodecParams);
+
+    // Open the audio codec for decoding
+    if (avcodec_open2(videoData->audioCodecContext, audioCodec, NULL) < 0) {
+        return false;  // Couldn't open audio codec
+    }
+
+    // Allocate memory for audio frames
+    videoData->audioFrame = av_frame_alloc();
 
     return true;  // Successfully loaded the video
 }
@@ -112,19 +167,19 @@ AVFrame* AssetsList::getFrame(int frameIndex) {
     while (av_read_frame(videoData->formatContext, &packet) >= 0) {
         if (packet.stream_index == videoData->videoStreamIndex) {
             // Send the packet to the codec for decoding
-            avcodec_send_packet(videoData->codecContext, &packet);
+            avcodec_send_packet(videoData->videoCodecContext, &packet);
 
             // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
+            int ret = avcodec_receive_frame(videoData->videoCodecContext, videoData->frame);
             if (ret >= 0) {
                 if (currentFrame == frameIndex) {
                     // Convert the frame to RGB
-                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
+                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->videoCodecContext->width, videoData->videoCodecContext->height, 1);
                     uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
 
                     // Perform the conversion to RGB.
-                    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-                    sws_scale(videoData->swsContext, videoData->frame->data, videoData->frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
+                    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->videoCodecContext->width, videoData->videoCodecContext->height, 1);
+                    sws_scale(videoData->swsContext, videoData->frame->data, videoData->frame->linesize, 0, videoData->videoCodecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
 
                     av_packet_unref(&packet);
                     return videoData->rgbFrame;  // Return the RGB frame

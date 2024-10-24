@@ -23,11 +23,22 @@ public:
     virtual void handleEvent(SDL_Event& event);
 
     SDL_Rect rect;
+
+    template <typename T>
+    T* findType();
+
+    virtual Segment* findTypeImpl(const std::type_info& type);
 protected:
     SDL_Renderer* renderer;
     EventManager* eventManager;
     SDL_Color color;
 };
+
+// Template method definition
+template<typename T>
+T* Segment::findType() {
+    return dynamic_cast<T*>(this->findTypeImpl(typeid(T)));
+}
 
 /**
  * @class SegmentHSplit
@@ -46,6 +57,8 @@ public:
      * @param event User interaction event code.
      */
     void handleEvent(SDL_Event& event) override;
+
+    Segment* findTypeImpl(const std::type_info& type) override;
 private:
     // Divider between segments
     SDL_Rect divider;
@@ -77,6 +90,8 @@ public:
      * @param event User interaction event code.
      */
     void handleEvent(SDL_Event& event) override;
+
+    Segment* findTypeImpl(const std::type_info& type) override;
 private:
     // Divider between segments
     SDL_Rect divider;
@@ -109,6 +124,10 @@ public:
      */
     void handleEvent(SDL_Event& event) override;
 
+    VideoData* getAssetFromAssetList(int mouseX, int mouseY);
+    double getVideoDuration();
+
+    Segment* findTypeImpl(const std::type_info& type) override;
 private:
     SDL_Texture* videoFrameTexture; // The texture to render
     VideoData* videoData; // Holds all VideoData that ffmpeg needs to processing
@@ -147,6 +166,54 @@ private:
 #endif // _WIN32
 };
 
+struct VideoSegment {
+    VideoData* videoData;      // Reference to the video data
+    double sourceStartTime;    // Start time in the original video file
+    double duration;           // Duration of this segment
+    double timelinePosition;   // Position in the overall timeline
+};
+struct AudioSegment {
+    VideoData* videoData;      // Reference to the audio data
+    double sourceStartTime;    // Start time in the original audio file
+    double duration;           // Duration of this segment
+    double timelinePosition;   // Position in the overall timeline
+};
+
+/**
+ * @class TimeLine
+ * @brief Window segment that shows the timeline. Editing is mostly done here.
+ */
+class Timeline : public Segment {
+public:
+    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    ~Timeline();
+
+    void render() override;
+    void update(int x, int y, int w, int h) override;
+
+    /**
+     * @brief Handle user events, like mouse clicks, drag-and-frop, etc.
+     * @param event User interaction event code.
+     */
+    void handleEvent(SDL_Event& event) override;
+
+    VideoSegment* getCurrentVideoSegment();
+    AudioSegment* getCurrentAudioSegment();
+    double getCurrentTime();
+    void setCurrentTime(double time);
+
+    void addVideoSegment(VideoData* data);
+    void addAudioSegment(VideoData* data);
+
+    Segment* findTypeImpl(const std::type_info& type) override;
+private:
+    std::vector<VideoSegment> videoSegments;
+    std::vector<AudioSegment> audioSegments;
+    double currentTime;
+    bool playing;
+    Uint32 lastUpdateTime;  // SDL_GetTicks() or equivalent to track time for playing state
+};
+
 /**
  * @class VideoPlayer
  * @brief Window segment that can render videos.
@@ -164,6 +231,12 @@ public:
      * @param event User interaction event code.
      */
     void handleEvent(SDL_Event& event) override;
+
+    bool getVideoFrameAtTime(double timeInSeconds);
+    int getAudioFrameAtTime(double timeInSeconds);
+    void playTimeline(Timeline* timeline);
+
+    Segment* findTypeImpl(const std::type_info& type) override;
 private:
     SDL_Texture* videoTexture; // Texture for the video frame
     VideoData* videoData; // Holds pointers to all VideoData for ffmpeg to be able to read frames
@@ -178,6 +251,7 @@ private:
      */
     void loadAndPlayVideo(VideoData* videoData);
     void playVideo();
+    void playAudioFrame(AVFrame* audioFrame);
 
     AVFrame* getNextFrame();
     void updateTextureFromFrame(AVFrame* frame);

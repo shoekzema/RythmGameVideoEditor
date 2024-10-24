@@ -37,21 +37,60 @@ Application::~Application() {
 void Application::handleEvents() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT) {
+        switch (event.type) {
+        case SDL_QUIT:
             running = false;
-        }
-        else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-            int newWidth = event.window.data1;
-            int newHeight = event.window.data2;
+            break;
 
-            appWindowSizeX = newWidth;
-            appWindowSizeY = newHeight;
+        case SDL_WINDOWEVENT:
+            if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                int newWidth = event.window.data1;
+                int newHeight = event.window.data2;
 
-            // Handle the window resize
-            rootSegment->update(0, 0, newWidth, newHeight);
-        }
-        else if (rootSegment) {
-            rootSegment->handleEvent(event);
+                appWindowSizeX = newWidth;
+                appWindowSizeY = newHeight;
+
+                // Handle the window resize
+                rootSegment->update(0, 0, newWidth, newHeight);
+            }
+            break;
+
+        case SDL_MOUSEBUTTONDOWN:
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                SDL_Point mouseButton = { event.button.x, event.button.y };
+
+                // Check if pressed inside an AssetList segment
+                AssetsList* assetList = rootSegment->findType<AssetsList>();
+                if (SDL_PointInRect(&mouseButton, &assetList->rect)) {
+                    draggedAsset = assetList->getAssetFromAssetList(mouseButton.x, mouseButton.y);
+                    isDragging = true;
+                }
+            }
+            break;
+
+        case SDL_MOUSEBUTTONUP:
+            if (isDragging && draggedAsset) {
+                SDL_Point mouseButton = { event.button.x, event.button.y };
+
+                // Check if released inside a Timeline segment
+                Timeline* timeline = rootSegment->findType<Timeline>();
+                if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
+                    // Add the new segments to the timeline
+                    timeline->addVideoSegment(draggedAsset);
+                    timeline->addAudioSegment(draggedAsset);
+                }
+
+                // Reset the dragging state
+                isDragging = false;
+                draggedAsset = nullptr;
+            }
+            break;
+
+        default:
+            if (rootSegment) {
+                rootSegment->handleEvent(event);
+            }
+            break;
         }
     }
 }

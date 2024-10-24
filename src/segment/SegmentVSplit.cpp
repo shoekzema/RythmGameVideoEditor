@@ -65,3 +65,20 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
     leftSegment->handleEvent(event);
     rightSegment->handleEvent(event);
 }
+
+Segment* SegmentVSplit::findTypeImpl(const std::type_info& type) {
+    if (type == typeid(SegmentVSplit)) {
+        return this;
+    }
+    if (leftSegment) {
+        if (Segment* found = leftSegment->findTypeImpl(type)) {
+            return found;
+        }
+    }
+    if (rightSegment) {
+        if (Segment* found = rightSegment->findTypeImpl(type)) {
+            return found;
+        }
+    }
+    return nullptr;
+}

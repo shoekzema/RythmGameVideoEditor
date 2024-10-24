@@ -17,3 +17,11 @@ void Segment::update(int x, int y, int w, int h) {
 }
 
 void Segment::handleEvent(SDL_Event& event) { }
+
+Segment* Segment::findTypeImpl(const std::type_info& type) {
+    // Base implementation: return this if the type matches
+    if (type == typeid(Segment)) {
+        return this;
+    }
+    return nullptr;
+}
