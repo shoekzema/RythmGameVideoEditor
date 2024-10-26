@@ -1,7 +1,7 @@
 #include "Segment.h"
 
-Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, color), currentTime(0.0), playing(false), lastUpdateTime(0) { }
+Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color), currentTime(0.0), startPlayTime(0.0), startTime(0), playing(false) { }
 
 Timeline::~Timeline() {
     // No need to delete renderer since it is managed elsewhere
@@ -13,8 +13,8 @@ void Timeline::render() {
 
     // Draw the video and audio track lines (example dimensions)
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_Rect videoTrack = { rect.x + 50, rect.h + 50, 800, 20 }; // Video track
-    SDL_Rect audioTrack = { rect.x + 50, rect.h + 100, 800, 20 }; // Audio track
+    SDL_Rect videoTrack = { rect.x + 50, rect.h + 50, rect.w - 100, 20 }; // Video track
+    SDL_Rect audioTrack = { rect.x + 50, rect.h + 100, rect.w - 100, 20 }; // Audio track
     SDL_RenderFillRect(renderer, &videoTrack);
     SDL_RenderFillRect(renderer, &audioTrack);
 
@@ -30,8 +30,7 @@ void Timeline::render() {
     }
 
     // Draw the current time indicator (a vertical line)
-    float timePercent = 0; //(float)vs->current_time / (float)vs->duration; // Percent of video duration
-    int indicatorX = 50 + (int)(timePercent * 800); // Map to screen width
+    int indicatorX = 50 + (int)currentTime;
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red line for current time
     SDL_RenderDrawLine(renderer, rect.x + indicatorX, rect.h + 40, rect.x + indicatorX, rect.h + 130);
 }
@@ -41,6 +40,20 @@ void Timeline::update(int x, int y, int w, int h) {
 }
 
 void Timeline::handleEvent(SDL_Event& event) {
+    switch (event.type) {
+    case SDL_KEYDOWN:
+        // Check if the key pressed was the spacebar
+        if (event.key.keysym.sym == SDLK_SPACE) {
+            if (playing) {
+                playing = false;
+                currentTime = startPlayTime;
+            }
+            else {
+                playing = true;
+                startTime = SDL_GetTicks() - static_cast<Uint32>(currentTime * 1000);
+            }
+        }
+    }
 }
 
 VideoSegment* Timeline::getCurrentVideoSegment() {
@@ -75,15 +88,14 @@ double Timeline::getCurrentTime() {
     if (playing) {
         // If playing, calculate the current time based on how long it's been playing
         Uint32 now = SDL_GetTicks();
-        currentTime += (now - lastUpdateTime) / 1000.0; // Update time in seconds
-        lastUpdateTime = now;
+        currentTime = (now - startTime) / 1000.0; // Update time in seconds
+        std::cout << currentTime << std::endl;
     }
     return currentTime;
 }
 
 void Timeline::setCurrentTime(double time) {
     currentTime = time;
-    lastUpdateTime = SDL_GetTicks();  // Reset the time tracking
 }
 
 Segment* Timeline::findTypeImpl(const std::type_info& type) {
@@ -121,7 +133,7 @@ void Timeline::addAudioSegment(VideoData* data) {
 
     // Create and add a new audioSegment
     AudioSegment audioSegment = {
-        .videoData = data,
+        .audioData = data,
         .sourceStartTime = 0.0,
         .duration = data->getVideoDuration(),
         .timelinePosition = position

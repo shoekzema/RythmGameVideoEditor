@@ -1,7 +1,7 @@
 #include "Segment.h"
 
-AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, color), videoData(new VideoData()), videoFrameTexture(nullptr) { }
+AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color), videoData(new VideoData()), videoFrameTexture(nullptr) { }
 
 AssetsList::~AssetsList() {
     if (videoData) delete videoData;
@@ -27,7 +27,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
             // If not in this Segment, we ignore it 
             if (SDL_PointInRect(&mouseButton, &rect)) {
                 // Broadcast the VideoData object to other segments
-                eventManager->emit(EventType::VideoSelected, videoData);
+                //eventManager->emit(EventType::VideoSelected, videoData);
             }
         }
         break;

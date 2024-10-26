@@ -36,7 +36,12 @@ Application::~Application() {
 
 void Application::handleEvents() {
     SDL_Event event;
+
     while (SDL_PollEvent(&event)) {
+        if (rootSegment) {
+            rootSegment->handleEvent(event);
+        }
+
         switch (event.type) {
         case SDL_QUIT:
             running = false;
@@ -83,12 +88,6 @@ void Application::handleEvents() {
                 // Reset the dragging state
                 isDragging = false;
                 draggedAsset = nullptr;
-            }
-            break;
-
-        default:
-            if (rootSegment) {
-                rootSegment->handleEvent(event);
             }
             break;
         }

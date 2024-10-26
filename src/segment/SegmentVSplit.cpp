@@ -1,11 +1,11 @@
 #include "Segment.h"
 
-SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false)
+SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color), draggingDivider(false), resizing(false)
 {
     divider = { x + w / 2 - dividerThickness / 2, y, dividerThickness, h };
-    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager);
-    rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager);
+    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
+    rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
 }
 
 SegmentVSplit::~SegmentVSplit() {

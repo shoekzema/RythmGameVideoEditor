@@ -10,7 +10,9 @@
  */
 class Segment {
 public:
-    Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    Segment* parent;
+
+    Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
     virtual ~Segment();
 
     virtual void render();
@@ -46,7 +48,7 @@ T* Segment::findType() {
  */
 class SegmentHSplit : public Segment {
 public:
-    SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 255, 0, 255 });
+    SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentHSplit();
 
     void render() override;
@@ -79,7 +81,7 @@ private:
  */
 class SegmentVSplit : public Segment {
 public:
-    SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 255, 0, 255 });
+    SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentVSplit();
 
     void render() override;
@@ -112,7 +114,7 @@ private:
  */
 class AssetsList : public Segment {
 public:
-    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
     ~AssetsList();
 
     void render() override;
@@ -173,7 +175,7 @@ struct VideoSegment {
     double timelinePosition;   // Position in the overall timeline
 };
 struct AudioSegment {
-    VideoData* videoData;      // Reference to the audio data
+    VideoData* audioData;      // Reference to the audio data
     double sourceStartTime;    // Start time in the original audio file
     double duration;           // Duration of this segment
     double timelinePosition;   // Position in the overall timeline
@@ -185,7 +187,9 @@ struct AudioSegment {
  */
 class Timeline : public Segment {
 public:
-    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    bool playing;
+
+    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
     ~Timeline();
 
     void render() override;
@@ -209,9 +213,9 @@ public:
 private:
     std::vector<VideoSegment> videoSegments;
     std::vector<AudioSegment> audioSegments;
-    double currentTime;
-    bool playing;
-    Uint32 lastUpdateTime;  // SDL_GetTicks() or equivalent to track time for playing state
+    double currentTime;   // The current time (and position) of the timeline
+    double startPlayTime; // The time in the timeline where playing starts from
+    Uint32 startTime = 0; // Absolute start time of playback (milliseconds)
 };
 
 /**
@@ -220,7 +224,7 @@ private:
  */
 class VideoPlayer : public Segment {
 public:
-    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color = { 0, 0, 0, 255 });
+    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
     ~VideoPlayer();
 
     void render() override;
@@ -232,14 +236,15 @@ public:
      */
     void handleEvent(SDL_Event& event) override;
 
-    bool getVideoFrameAtTime(double timeInSeconds);
-    int getAudioFrameAtTime(double timeInSeconds);
+    bool getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoSegment);
+    int getAudioFrameAtTime(double timeInSeconds, AudioSegment* audioSegment);
     void playTimeline(Timeline* timeline);
 
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
     SDL_Texture* videoTexture; // Texture for the video frame
     VideoData* videoData; // Holds pointers to all VideoData for ffmpeg to be able to read frames
+    Timeline* timeline; // Pointer towards the timeline segment
 
     bool playing = false;
     Uint32 lastFrameTime = 0;      // The time when the last frame was updated
