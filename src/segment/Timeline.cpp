@@ -89,7 +89,6 @@ double Timeline::getCurrentTime() {
         // If playing, calculate the current time based on how long it's been playing
         Uint32 now = SDL_GetTicks();
         currentTime = (now - startTime) / 1000.0; // Update time in seconds
-        std::cout << currentTime << std::endl;
     }
     return currentTime;
 }
