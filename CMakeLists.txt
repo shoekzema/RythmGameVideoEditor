@@ -52,6 +52,7 @@ target_link_libraries(RythmGameVideoEditor
     ${FFMPEG_LIBRARIES}/avcodec.lib
     ${FFMPEG_LIBRARIES}/avformat.lib
     ${FFMPEG_LIBRARIES}/avutil.lib
+    ${FFMPEG_LIBRARIES}/swresample.lib
     ${FFMPEG_LIBRARIES}/swscale.lib
 )
 

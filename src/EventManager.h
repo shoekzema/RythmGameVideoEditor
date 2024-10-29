@@ -7,7 +7,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
-#include <libavutil/imgutils.h>
+#include <libswresample/swresample.h>
 }
 
 // Type of event to emit or subscribe to
@@ -26,10 +26,11 @@ struct VideoData {
     SwsContext* swsContext; // Used for converting the frame to the desired format (e.g., YUV to RGB).
     int videoStreamIndex; // The index of the video stream (because a file might have multiple streams).
     int audioStreamIndex; // The index of the audio stream (because a file might have multiple streams).
+    SwrContext* swrCtx;
 
     VideoData() : formatContext(nullptr), videoCodecContext(nullptr), audioCodecContext(nullptr), 
         frame(nullptr), audioFrame(nullptr), rgbFrame(nullptr), 
-        swsContext(nullptr), videoStreamIndex(-1), audioStreamIndex(-1) {}
+        swsContext(nullptr), videoStreamIndex(-1), audioStreamIndex(-1), swrCtx(nullptr) {}
 
     // Cleanup video data when it's no longer used
     ~VideoData() {
@@ -45,6 +46,9 @@ struct VideoData {
         // Close format context
         if (formatContext) avformat_close_input(&formatContext);
         if (swsContext) sws_freeContext(swsContext);
+
+        // Close audio context
+        if (swrCtx) swr_free(&swrCtx);
     }
 
     double getVideoDuration() {

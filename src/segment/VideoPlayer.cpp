@@ -1,15 +1,37 @@
 #include "Segment.h"
 
 VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color), videoData(nullptr), videoTexture(nullptr), timeline(nullptr)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color), videoData(nullptr), videoTexture(nullptr), timeline(nullptr), audioBuffer(nullptr), audioBufferSize(0)
 {
     // Subscribe to the VideoSelected event
     eventManager->subscribe(EventType::VideoSelected, [this](VideoData* videoData) {
         loadAndPlayVideo(videoData);
     });
+
+    // Initialize SDL audio device and resampler (SwrContext)
+    SDL_AudioSpec audioSpec;
+    audioSpec.freq = 44100;
+    audioSpec.format = AUDIO_S16SYS; // 16-bit signed audio format
+    audioSpec.channels = 2;
+    audioSpec.samples = 1024;
+    audioSpec.callback = nullptr; // Use SDL_QueueAudio instead
+
+    // Open audio device
+    audioDevice = SDL_OpenAudioDevice(nullptr, 0, &audioSpec, nullptr, 0);
+    if (audioDevice == 0) {
+        std::cerr << "Error opening audio device: " << SDL_GetError() << std::endl;
+        return;
+    }
+    SDL_PauseAudioDevice(audioDevice, 0);
+
+    // Allocate buffer for converted audio
+    audioBufferSize = 192000; // example size, adjust as necessary
+    audioBuffer = static_cast<uint8_t*>(av_malloc(audioBufferSize));
 }
 
 VideoPlayer::~VideoPlayer() {
+    SDL_CloseAudioDevice(audioDevice);
+    av_free(audioBuffer);
 }
 
 void VideoPlayer::loadAndPlayVideo(VideoData* videoData) {
@@ -120,7 +142,7 @@ void VideoPlayer::update(int x, int y, int w, int h) {
 bool VideoPlayer::getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoSegment) {
     // Get the timestamp in the stream's time base
     AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->videoStreamIndex]->time_base;
-    int64_t targetTimestamp = timeInSeconds / av_q2d(timeBase);
+    int64_t targetTimestamp = (int64_t)(timeInSeconds / av_q2d(timeBase));
 
     if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->videoStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
         std::cerr << "Error seeking to timestamp: " << timeInSeconds << " seconds." << std::endl;
@@ -176,7 +198,10 @@ bool VideoPlayer::getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoS
 }
 
 int VideoPlayer::getAudioFrameAtTime(double timeInSeconds, AudioSegment* audioSegment) {
-    int64_t targetTimestamp = timeInSeconds * AV_TIME_BASE;
+    // Get the timestamp in the stream's time base
+    AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base;
+    int64_t targetTimestamp = (int64_t)(timeInSeconds / av_q2d(timeBase));
+
     if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->audioStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
         std::cerr << "Error seeking to timestamp: " << timeInSeconds << " seconds." << std::endl;
         return -1;
@@ -194,9 +219,11 @@ int VideoPlayer::getAudioFrameAtTime(double timeInSeconds, AudioSegment* audioSe
                 continue;
             }
 
+            //SDL_ClearQueuedAudio(audioDevice);
+
             // Receive the audio frame from the decoder
             while (avcodec_receive_frame(audioSegment->audioData->audioCodecContext, audioSegment->audioData->audioFrame) == 0) {
-                // The decoded audio is in videoData->audioFrame->data
+                // The decoded audio is in audioData->audioFrame->data
                 // You can process or send this audio data to SDL2 for playback
                 av_packet_unref(&packet);
                 return 0; // Successfully got the audio frame
@@ -212,55 +239,63 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
     VideoSegment* currentVideoSegment = timeline->getCurrentVideoSegment();
     if (!currentVideoSegment) {
         std::cerr << "No video segment found at the current timeline position." << std::endl;
-        return;
+    }
+    else {
+        // Calculate the current time within the segment
+        double currentTimeInSegment = currentVideoSegment->sourceStartTime + timeline->getCurrentTime() - currentVideoSegment->timelinePosition;
+
+        // Get and decode the video frame at the corresponding time in the segment
+        if (!getVideoFrameAtTime(currentTimeInSegment, currentVideoSegment)) {
+            std::cerr << "Failed to retrieve video frame." << std::endl;
+            return;
+        }
+
+        // Display the video frame using SDL
+        if (currentVideoSegment->videoData->rgbFrame) {
+            // Create an SDL texture if not already created
+            if (!videoTexture) {
+                videoTexture = SDL_CreateTexture(
+                    renderer,
+                    SDL_PIXELFORMAT_RGB24,
+                    SDL_TEXTUREACCESS_STREAMING,
+                    currentVideoSegment->videoData->videoCodecContext->width,
+                    currentVideoSegment->videoData->videoCodecContext->height
+                );
+                if (!videoTexture) {
+                    std::cerr << "Failed to create SDL texture: " << SDL_GetError() << std::endl;
+                    return;
+                }
+            }
+
+            // Copy frame data to the texture
+            SDL_UpdateTexture(
+                videoTexture,
+                nullptr,
+                currentVideoSegment->videoData->rgbFrame->data[0],
+                currentVideoSegment->videoData->rgbFrame->linesize[0]
+            );
+
+            // Draw the texture
+            SDL_RenderCopy(renderer, videoTexture, nullptr, &rect);
+        }
     }
 
     // Get the current audio segment (if applicable)
     AudioSegment* currentAudioSegment = timeline->getCurrentAudioSegment();
-
-    // Calculate the current time within the segment
-    double currentTimeInSegment = currentVideoSegment->sourceStartTime + timeline->getCurrentTime() - currentVideoSegment->timelinePosition;
-
-    // Get and decode the video frame at the corresponding time in the segment
-    if (!getVideoFrameAtTime(currentTimeInSegment, currentVideoSegment)) {
-        std::cerr << "Failed to retrieve video frame." << std::endl;
-        return;
+    if (!currentAudioSegment) {
+        std::cerr << "No audio segment found at the current timeline position." << std::endl;
     }
+    else {
+        // Calculate the current time within the segment
+        double currentTimeInSegment = currentAudioSegment->sourceStartTime + timeline->getCurrentTime() - currentAudioSegment->timelinePosition;
 
-    // Get and decode the audio frame (if applicable)
-    if (currentAudioSegment && getAudioFrameAtTime(currentAudioSegment->sourceStartTime + currentTimeInSegment, currentAudioSegment) < 0) {
-        std::cerr << "Failed to retrieve audio frame." << std::endl;
-        return;
-    }
-
-    // Queue audio data for playback (if available)
-    if (currentAudioSegment) {
-        playAudioFrame(currentAudioSegment->audioData->audioFrame);
-    }
-
-    // Display the video frame using SDL
-    if (currentVideoSegment->videoData->rgbFrame) {
-        // Create an SDL texture if not already created
-        if (!videoTexture) {
-            videoTexture = SDL_CreateTexture(
-                renderer,
-                SDL_PIXELFORMAT_RGB24,
-                SDL_TEXTUREACCESS_STREAMING,
-                currentVideoSegment->videoData->videoCodecContext->width,
-                currentVideoSegment->videoData->videoCodecContext->height
-            );
+        // Get and decode the audio frame (if applicable)
+        if (getAudioFrameAtTime(currentAudioSegment->sourceStartTime + currentTimeInSegment, currentAudioSegment) < 0) {
+            std::cerr << "Failed to retrieve audio frame." << std::endl;
+            return;
         }
-
-        // Copy frame data to the texture
-        SDL_UpdateTexture(
-            videoTexture,
-            nullptr,
-            currentVideoSegment->videoData->rgbFrame->data[0],
-            currentVideoSegment->videoData->rgbFrame->linesize[0]
-        );
-
-        // Draw the texture
-        SDL_RenderCopy(renderer, videoTexture, nullptr, &rect);
+        // Queue audio data for playback
+        playAudioFrame(currentAudioSegment->audioData);
     }
 }
 
@@ -271,8 +306,37 @@ Segment* VideoPlayer::findTypeImpl(const std::type_info& type) {
     return nullptr;
 }
 
-void VideoPlayer::playAudioFrame(AVFrame* audioFrame) {
-    // Audio conversion and playback with SDL
-    // For example, you can use SDL_QueueAudio() to queue decoded audio for playback
+void VideoPlayer::playAudioFrame(VideoData* audioData) {
+    // Check if the audio frame is valid
+    if (!audioData || !audioData->audioFrame || !audioData->audioFrame->data[0]) {
+        std::cerr << "Invalid audio frame" << std::endl;
+        return;
+    }
+
+    // Resample and convert audio to SDL format
+    int numSamples = swr_convert(audioData->swrCtx,
+        &audioBuffer,                 // output buffer
+        audioData->audioFrame->nb_samples * 2,       // number of samples to output (2 for stereo)
+        (const uint8_t**)audioData->audioFrame->data, // input buffer
+        audioData->audioFrame->nb_samples);      // number of input samples
+
+    if (numSamples < 0) {
+        std::cerr << "Error in resampling audio" << std::endl;
+        return;
+    }
+
+    int bufferSize = numSamples * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16) * 2; // 2 channels (assuming stereo)
+
+    // Ensure the buffer is valid before queueing
+    if (bufferSize <= 0) {
+        std::cerr << "Buffer size is 0, not queuing audio." << std::endl;
+    }
+
+    //SDL_ClearQueuedAudio(audioDevice);
+
+    // Queue audio data to SDL
+    if (SDL_QueueAudio(audioDevice, audioBuffer, bufferSize) < 0) {
+        std::cerr << "Error queueing audio: " << SDL_GetError() << std::endl;
+    }
 }
 

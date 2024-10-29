@@ -79,13 +79,17 @@ void AssetsList::update(int x, int y, int w, int h) {
 bool AssetsList::loadVideo(const char* filename) {
     // Open the file and reads its header, populating formatContext.
     videoData->formatContext = avformat_alloc_context();
-    if (avformat_open_input(&videoData->formatContext, filename, NULL, NULL) != 0) {
-        return false;  // Couldn't open the video file
+    if (avformat_open_input(&videoData->formatContext, filename, nullptr, nullptr) != 0) {
+        std::cerr << "Could not open input file: " << filename << std::endl;
+        delete videoData;
+        return false;
     }
 
     // Find information about streams (audio, video) within the file.
     if (avformat_find_stream_info(videoData->formatContext, NULL) < 0) {
-        return false;  // Couldn't find stream info
+        std::cerr << "Could not find stream information." << std::endl;
+        delete videoData;
+        return false;
     }
 
     // Find the first video and audio stream index
@@ -102,27 +106,41 @@ bool AssetsList::loadVideo(const char* filename) {
         }
     }
 
-    if (videoData->videoStreamIndex == -1) {
-        return false;  // Couldn't find a video stream
-    }
-    if (videoData->audioStreamIndex == -1) {
-        return false;  // Couldn't find an audio stream
-    }
-
-    // Get the codec and set up the codec context
-    AVCodecParameters* codecParams = videoData->formatContext->streams[videoData->videoStreamIndex]->codecpar;
-    const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id); // A specific codec for decoding video (e.g., H.264).
-    if (!codec) {
-        return false;  // Codec not found
+    if (videoData->audioStreamIndex == -1 || videoData->videoStreamIndex == -1) {
+        std::cerr << "Could not find audio or video stream." << std::endl;
+        delete videoData;
+        return false;
     }
 
-    // Allocate and set up the codec context.
-    videoData->videoCodecContext = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(videoData->videoCodecContext, codecParams);
+    // Get the video codec parameters
+    AVCodecParameters* videoCodecParams = videoData->formatContext->streams[videoData->videoStreamIndex]->codecpar;
+    const AVCodec* videoCodec = avcodec_find_decoder(videoCodecParams->codec_id); // A specific codec for decoding video (e.g., H.264).
+    if (!videoCodec) {
+        std::cerr << "Unsupported video codec!" << std::endl;
+        delete videoData;
+        return false;
+    }
 
-    // Open the codec for decoding.
-    if (avcodec_open2(videoData->videoCodecContext, codec, NULL) < 0) {
-        return false;  // Couldn't open codec
+    // Allocate video codec context
+    videoData->videoCodecContext = avcodec_alloc_context3(videoCodec);
+    if (!videoData->videoCodecContext) {
+        std::cerr << "Could not allocate video codec context." << std::endl;
+        delete videoData;
+        return false;
+    }
+
+    // Copy codec parameters to the video codec context
+    if (avcodec_parameters_to_context(videoData->videoCodecContext, videoCodecParams) < 0) {
+        std::cerr << "Could not copy video codec parameters to context." << std::endl;
+        delete videoData;
+        return false;
+    }
+
+    // Open the video codec
+    if (avcodec_open2(videoData->videoCodecContext, videoCodec, nullptr) < 0) {
+        std::cerr << "Could not open video codec." << std::endl;
+        delete videoData;
+        return false;
     }
 
     // Allocate memory for video frames for decoded video and converted RGB format
@@ -136,20 +154,78 @@ bool AssetsList::loadVideo(const char* filename) {
         SWS_BILINEAR, NULL, NULL, NULL);
 
 
-    // Set up the audio codec and context
+    // Get the codec parameters for audio
     AVCodecParameters* audioCodecParams = videoData->formatContext->streams[videoData->audioStreamIndex]->codecpar;
     const AVCodec* audioCodec = avcodec_find_decoder(audioCodecParams->codec_id);
     if (!audioCodec) {
-        return false;  // Audio codec not found
+        std::cerr << "Unsupported audio codec!" << std::endl;
+        delete videoData;
+        return false;
     }
 
-    // Allocate and set up the audio codec context
+    // Allocate audio codec context
     videoData->audioCodecContext = avcodec_alloc_context3(audioCodec);
-    avcodec_parameters_to_context(videoData->audioCodecContext, audioCodecParams);
+    if (!videoData->audioCodecContext) {
+        std::cerr << "Could not allocate audio codec context." << std::endl;
+        delete videoData;
+        return false;
+    }
 
-    // Open the audio codec for decoding
+    // Copy codec parameters to the codec context
+    if (avcodec_parameters_to_context(videoData->audioCodecContext, audioCodecParams) < 0) {
+        std::cerr << "Could not copy audio codec parameters to context." << std::endl;
+        delete videoData;
+        return false;
+    }
+
+    // Set the packet timebase
+    videoData->audioCodecContext->pkt_timebase = videoData->formatContext->streams[videoData->audioStreamIndex]->time_base;
+
+    // Open the audio codec
     if (avcodec_open2(videoData->audioCodecContext, audioCodec, NULL) < 0) {
-        return false;  // Couldn't open audio codec
+        std::cerr << "Could not open audio codec." << std::endl;
+        delete videoData;
+        return false;
+    }
+
+    // Set up the SwrContext for audio resampling
+    videoData->swrCtx = swr_alloc();
+    if (!videoData->swrCtx) {
+        std::cerr << "Could not allocate SwrContext." << std::endl;
+        delete videoData;
+        return false;
+    }
+
+    // Set the options for the SwrContext
+    AVChannelLayout outChannelLayout = AV_CHANNEL_LAYOUT_STEREO;
+    AVChannelLayout inChannelLayout;
+    inChannelLayout.order = AV_CHANNEL_ORDER_NATIVE;
+    inChannelLayout.nb_channels = av_get_channel_layout_nb_channels(videoData->audioCodecContext->channels);
+    if (inChannelLayout.nb_channels > 0) {
+        inChannelLayout.u.mask = (1ULL << inChannelLayout.nb_channels) - 1; // Assuming all channels are used
+    }
+
+    if (swr_alloc_set_opts2(
+        &videoData->swrCtx,
+        &outChannelLayout,              // Output channel layout
+        AV_SAMPLE_FMT_S16,              // Output sample format (for SDL)
+        44100,                          // Output sample rate
+        &inChannelLayout,               // Input channel layout
+        (AVSampleFormat)videoData->audioCodecContext->sample_fmt, // Input sample format (FFmpeg decoded format)
+        videoData->audioCodecContext->sample_rate,                // Input sample rate
+        0,                              // No additional options
+        nullptr                         // No logging context
+    ) < 0) {
+        std::cerr << "Failed to set options for SwrContext." << std::endl;
+        swr_free(&videoData->swrCtx);
+        return false;
+    }
+
+    // Initialize the SwrContext
+    if (swr_init(videoData->swrCtx) < 0) {
+        std::cerr << "Failed to initialize the SwrContext." << std::endl;
+        delete videoData;
+        return false;
     }
 
     // Allocate memory for audio frames
@@ -157,6 +233,7 @@ bool AssetsList::loadVideo(const char* filename) {
 
     return true;  // Successfully loaded the video
 }
+
 
 AVFrame* AssetsList::getFrame(int frameIndex) {
     AVPacket packet;

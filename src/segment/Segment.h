@@ -250,13 +250,17 @@ private:
     Uint32 lastFrameTime = 0;      // The time when the last frame was updated
     double frameDurationMs = 0;    // Time per video frame in milliseconds
 
+    SDL_AudioDeviceID audioDevice;
+    uint8_t* audioBuffer;
+    int audioBufferSize;
+
     /**
      * @brief Save a video's data and start playing it.
      * @param videoData The processed ffmpeg video data.
      */
     void loadAndPlayVideo(VideoData* videoData);
     void playVideo();
-    void playAudioFrame(AVFrame* audioFrame);
+    void playAudioFrame(VideoData* audioData);
 
     AVFrame* getNextFrame();
     void updateTextureFromFrame(AVFrame* frame);
