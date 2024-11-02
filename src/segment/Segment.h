@@ -237,7 +237,6 @@ public:
     void handleEvent(SDL_Event& event) override;
 
     bool getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoSegment);
-    int getAudioFrameAtTime(double timeInSeconds, AudioSegment* audioSegment);
     void playTimeline(Timeline* timeline);
 
     Segment* findTypeImpl(const std::type_info& type) override;
@@ -251,6 +250,7 @@ private:
     double frameDurationMs = 0;    // Time per video frame in milliseconds
 
     SDL_AudioDeviceID audioDevice;
+    SDL_AudioSpec audioSpec;
     uint8_t* audioBuffer;
     int audioBufferSize;
 
@@ -260,7 +260,7 @@ private:
      */
     void loadAndPlayVideo(VideoData* videoData);
     void playVideo();
-    void playAudioFrame(VideoData* audioData);
+    void playAudioSegment(AudioSegment* audioSegment);
 
     AVFrame* getNextFrame();
     void updateTextureFromFrame(AVFrame* frame);

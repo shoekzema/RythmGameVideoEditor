@@ -9,7 +9,7 @@ VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, Eve
     });
 
     // Initialize SDL audio device and resampler (SwrContext)
-    SDL_AudioSpec audioSpec;
+    SDL_zero(audioSpec);
     audioSpec.freq = 44100;
     audioSpec.format = AUDIO_S16SYS; // 16-bit signed audio format
     audioSpec.channels = 2;
@@ -22,7 +22,6 @@ VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, Eve
         std::cerr << "Error opening audio device: " << SDL_GetError() << std::endl;
         return;
     }
-    SDL_PauseAudioDevice(audioDevice, 0);
 
     // Allocate buffer for converted audio
     audioBufferSize = 192000; // example size, adjust as necessary
@@ -55,6 +54,9 @@ void VideoPlayer::render() {
     if (timeline) {
         if (timeline->playing) {
             playTimeline(timeline);
+        }
+        else {
+            SDL_PauseAudioDevice(audioDevice, 1);
         }
     }
     else {
@@ -197,43 +199,6 @@ bool VideoPlayer::getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoS
     return false; // No frame found or error occurred
 }
 
-int VideoPlayer::getAudioFrameAtTime(double timeInSeconds, AudioSegment* audioSegment) {
-    // Get the timestamp in the stream's time base
-    AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base;
-    int64_t targetTimestamp = (int64_t)(timeInSeconds / av_q2d(timeBase));
-
-    if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->audioStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-        std::cerr << "Error seeking to timestamp: " << timeInSeconds << " seconds." << std::endl;
-        return -1;
-    }
-
-    // Flush the codec context buffers to clear any data from previous frames.
-    avcodec_flush_buffers(audioSegment->audioData->audioCodecContext);
-
-    AVPacket packet;
-    while (av_read_frame(audioSegment->audioData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == audioSegment->audioData->audioStreamIndex) {
-            // Send packet to the decoder
-            if (avcodec_send_packet(audioSegment->audioData->audioCodecContext, &packet) != 0) {
-                av_packet_unref(&packet);
-                continue;
-            }
-
-            //SDL_ClearQueuedAudio(audioDevice);
-
-            // Receive the audio frame from the decoder
-            while (avcodec_receive_frame(audioSegment->audioData->audioCodecContext, audioSegment->audioData->audioFrame) == 0) {
-                // The decoded audio is in audioData->audioFrame->data
-                // You can process or send this audio data to SDL2 for playback
-                av_packet_unref(&packet);
-                return 0; // Successfully got the audio frame
-            }
-        }
-        av_packet_unref(&packet);
-    }
-    return -1; // No audio frame found or error occurred
-}
-
 void VideoPlayer::playTimeline(Timeline* timeline) {
     // Get the current video segment from the timeline
     VideoSegment* currentVideoSegment = timeline->getCurrentVideoSegment();
@@ -283,20 +248,95 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
     // Get the current audio segment (if applicable)
     AudioSegment* currentAudioSegment = timeline->getCurrentAudioSegment();
     if (!currentAudioSegment) {
-        std::cerr << "No audio segment found at the current timeline position." << std::endl;
+        //std::cout << "No audio segment found at the current timeline position." << std::endl;
+        SDL_PauseAudioDevice(audioDevice, 1); // Pause audio if no audio segments found at the current timeline position.
     }
     else {
-        // Calculate the current time within the segment
-        double currentTimeInSegment = currentAudioSegment->sourceStartTime + timeline->getCurrentTime() - currentAudioSegment->timelinePosition;
-
-        // Get and decode the audio frame (if applicable)
-        if (getAudioFrameAtTime(currentAudioSegment->sourceStartTime + currentTimeInSegment, currentAudioSegment) < 0) {
-            std::cerr << "Failed to retrieve audio frame." << std::endl;
-            return;
-        }
-        // Queue audio data for playback
-        playAudioFrame(currentAudioSegment->audioData);
+        playAudioSegment(currentAudioSegment);
     }
+}
+
+void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
+    if (!audioSegment) {
+        std::cerr << "Invalid audio segment" << std::endl;
+        return;
+    }
+
+    double startTime = audioSegment->sourceStartTime;
+    double endTime = startTime + audioSegment->duration;
+
+    // Get the timestamp in the stream's time base
+    AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base;
+    int64_t targetTimestamp = (int64_t)(startTime / av_q2d(timeBase));
+
+    if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->audioStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+        std::cerr << "Error seeking to timestamp: " << startTime << " seconds." << std::endl;
+        return;
+    }
+
+    // Flush the codec context buffers to clear any data from previous audio frames.
+    avcodec_flush_buffers(audioSegment->audioData->audioCodecContext);
+
+    // Decode audio frames and play them until reaching the end of the segment duration
+    AVPacket packet;
+    while (av_read_frame(audioSegment->audioData->formatContext, &packet) >= 0) {
+        if (packet.stream_index == audioSegment->audioData->audioStreamIndex) {
+            // Send packet to the decoder
+            int ret = avcodec_send_packet(audioSegment->audioData->audioCodecContext, &packet);
+            if (ret < 0) break;
+            while (ret >= 0) {
+                // Receive the audio frame from the decoder
+                ret = avcodec_receive_frame(audioSegment->audioData->audioCodecContext, audioSegment->audioData->audioFrame);
+
+                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+                if (ret < 0) return;
+
+                double currentTime = audioSegment->audioData->audioFrame->pts * av_q2d(audioSegment->audioData->formatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base);
+                if (currentTime > endTime) break;
+
+                // Check if the audio frame is valid
+                if (!audioSegment->audioData->audioFrame || !audioSegment->audioData->audioFrame->data[0]) {
+                    std::cerr << "Invalid audio frame" << std::endl;
+                    return;
+                }
+
+                // Resample and convert audio to SDL format
+                int numSamples = swr_convert(audioSegment->audioData->swrCtx,
+                    &audioBuffer,                                               // output buffer
+                    audioSegment->audioData->audioFrame->nb_samples * 2,        // number of samples to output (2 for stereo)
+                    (const uint8_t**)audioSegment->audioData->audioFrame->data, // input buffer
+                    audioSegment->audioData->audioFrame->nb_samples);           // number of input samples
+
+                if (numSamples < 0) {
+                    std::cerr << "Error in resampling audio" << std::endl;
+                    return;
+                }
+
+                int bufferSize = numSamples * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16) * 2; // 2 channels (assuming stereo)
+
+                // Ensure the buffer is valid before queueing
+                if (bufferSize <= 0) {
+                    std::cerr << "Buffer size is 0, not queuing audio." << std::endl;
+                }
+
+                // Queue audio data to SDL
+                if (SDL_QueueAudio(audioDevice, audioBuffer, bufferSize) < 0) {
+                    std::cerr << "Error queueing audio: " << SDL_GetError() << std::endl;
+                }
+
+                // Check if the audio segment duration is reached
+                if (currentTime >= endTime) {
+                    SDL_PauseAudioDevice(audioDevice, 1); // Pause audio if end of segment is reached
+                    break;
+                }
+                else {
+                    SDL_PauseAudioDevice(audioDevice, 0); // Unpause audio
+                }
+            }
+        }
+        av_packet_unref(&packet);
+    }
+    return;
 }
 
 Segment* VideoPlayer::findTypeImpl(const std::type_info& type) {
@@ -305,38 +345,3 @@ Segment* VideoPlayer::findTypeImpl(const std::type_info& type) {
     }
     return nullptr;
 }
-
-void VideoPlayer::playAudioFrame(VideoData* audioData) {
-    // Check if the audio frame is valid
-    if (!audioData || !audioData->audioFrame || !audioData->audioFrame->data[0]) {
-        std::cerr << "Invalid audio frame" << std::endl;
-        return;
-    }
-
-    // Resample and convert audio to SDL format
-    int numSamples = swr_convert(audioData->swrCtx,
-        &audioBuffer,                 // output buffer
-        audioData->audioFrame->nb_samples * 2,       // number of samples to output (2 for stereo)
-        (const uint8_t**)audioData->audioFrame->data, // input buffer
-        audioData->audioFrame->nb_samples);      // number of input samples
-
-    if (numSamples < 0) {
-        std::cerr << "Error in resampling audio" << std::endl;
-        return;
-    }
-
-    int bufferSize = numSamples * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16) * 2; // 2 channels (assuming stereo)
-
-    // Ensure the buffer is valid before queueing
-    if (bufferSize <= 0) {
-        std::cerr << "Buffer size is 0, not queuing audio." << std::endl;
-    }
-
-    //SDL_ClearQueuedAudio(audioDevice);
-
-    // Queue audio data to SDL
-    if (SDL_QueueAudio(audioDevice, audioBuffer, bufferSize) < 0) {
-        std::cerr << "Error queueing audio: " << SDL_GetError() << std::endl;
-    }
-}
-
