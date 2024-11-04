@@ -236,7 +236,7 @@ public:
      */
     void handleEvent(SDL_Event& event) override;
 
-    bool getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoSegment);
+    bool getVideoFrame(VideoSegment* videoSegment);
     void playTimeline(Timeline* timeline);
 
     Segment* findTypeImpl(const std::type_info& type) override;
@@ -253,6 +253,9 @@ private:
     SDL_AudioSpec audioSpec;
     uint8_t* audioBuffer;
     int audioBufferSize;
+
+    VideoSegment* lastVideoSegment = nullptr;
+    AudioSegment* lastAudioSegment = nullptr;
 
     /**
      * @brief Save a video's data and start playing it.

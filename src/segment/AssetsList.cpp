@@ -85,6 +85,13 @@ bool AssetsList::loadVideo(const char* filename) {
         return false;
     }
 
+    videoData->audioFormatContext = avformat_alloc_context();
+    if (avformat_open_input(&videoData->audioFormatContext, filename, nullptr, nullptr) != 0) {
+        std::cerr << "Could not open input file: " << filename << std::endl;
+        delete videoData;
+        return false;
+    }
+
     // Find information about streams (audio, video) within the file.
     if (avformat_find_stream_info(videoData->formatContext, NULL) < 0) {
         std::cerr << "Could not find stream information." << std::endl;

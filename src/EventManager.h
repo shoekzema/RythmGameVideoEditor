@@ -19,6 +19,7 @@ enum class EventType {
 // Structure holding all preprocessed ffmpeg data to be able to quickly process videos
 struct VideoData {
     AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
+    AVFormatContext* audioFormatContext;
     AVCodecContext* videoCodecContext; // Manages decoding of the video stream.
     AVCodecContext* audioCodecContext; // Manages decoding of the audio stream.
     AVFrame* frame; // Holds decoded video frame data.
@@ -29,7 +30,7 @@ struct VideoData {
     int audioStreamIndex; // The index of the audio stream (because a file might have multiple streams).
     SwrContext* swrCtx;
 
-    VideoData() : formatContext(nullptr), videoCodecContext(nullptr), audioCodecContext(nullptr), 
+    VideoData() : formatContext(nullptr), audioFormatContext(nullptr), videoCodecContext(nullptr), audioCodecContext(nullptr),
         frame(nullptr), audioFrame(nullptr), rgbFrame(nullptr), 
         swsContext(nullptr), videoStreamIndex(-1), audioStreamIndex(-1), swrCtx(nullptr) {}
 
@@ -46,6 +47,7 @@ struct VideoData {
 
         // Close format context
         if (formatContext) avformat_close_input(&formatContext);
+        if (audioFormatContext) avformat_close_input(&audioFormatContext);
         if (swsContext) sws_freeContext(swsContext);
 
         // Close audio context

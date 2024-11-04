@@ -57,6 +57,10 @@ void VideoPlayer::render() {
         }
         else {
             SDL_PauseAudioDevice(audioDevice, 1);
+
+            // Pause or stop any other playback actions as needed
+            lastVideoSegment = nullptr;
+            lastAudioSegment = nullptr;
         }
     }
     else {
@@ -141,18 +145,32 @@ void VideoPlayer::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
-bool VideoPlayer::getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoSegment) {
-    // Get the timestamp in the stream's time base
-    AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->videoStreamIndex]->time_base;
-    int64_t targetTimestamp = (int64_t)(timeInSeconds / av_q2d(timeBase));
-
-    if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->videoStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-        std::cerr << "Error seeking to timestamp: " << timeInSeconds << " seconds." << std::endl;
+bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
+    if (!videoSegment) {
+        std::cerr << "Invalid video segment" << std::endl;
         return false;
     }
 
-    // Flush the codec context buffers to clear any data from previous frames.
-    avcodec_flush_buffers(videoSegment->videoData->videoCodecContext);
+    // Seek to the beginning of the segment if this is a new segment
+    if (lastVideoSegment != videoSegment) {
+        // Get the timestamp in the stream's time base
+        AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->videoStreamIndex]->time_base;
+        int64_t targetTimestamp = (int64_t)(videoSegment->sourceStartTime / av_q2d(timeBase));
+
+        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->videoStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking to timestamp: " << videoSegment->sourceStartTime << " seconds." << std::endl;
+            return false;
+        }
+
+        // Clear any end-of-file flags that might prevent reading more frames
+        // videoSegment->videoData->formatContext->pb->eof_reached = 0;
+
+        // Flush the codec context buffers to clear any data from previous frames.
+        avcodec_flush_buffers(videoSegment->videoData->videoCodecContext);
+    }
+
+    // Update last segment pointer
+    lastVideoSegment = videoSegment;
 
     AVPacket packet;
     while (av_read_frame(videoSegment->videoData->formatContext, &packet) >= 0) {
@@ -187,9 +205,6 @@ bool VideoPlayer::getVideoFrameAtTime(double timeInSeconds, VideoSegment* videoS
                     videoSegment->videoData->rgbFrame->data,
                     videoSegment->videoData->rgbFrame->linesize);
 
-                // Now, videoData->rgbFrame contains the RGB frame at the desired time
-                // Process or render this frame as needed...
-
                 av_packet_unref(&packet);  // Free the packet
                 return true; // Successfully got the frame
             }
@@ -206,11 +221,8 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
         std::cerr << "No video segment found at the current timeline position." << std::endl;
     }
     else {
-        // Calculate the current time within the segment
-        double currentTimeInSegment = currentVideoSegment->sourceStartTime + timeline->getCurrentTime() - currentVideoSegment->timelinePosition;
-
         // Get and decode the video frame at the corresponding time in the segment
-        if (!getVideoFrameAtTime(currentTimeInSegment, currentVideoSegment)) {
+        if (!getVideoFrame(currentVideoSegment)) {
             std::cerr << "Failed to retrieve video frame." << std::endl;
             return;
         }
@@ -265,21 +277,27 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
     double startTime = audioSegment->sourceStartTime;
     double endTime = startTime + audioSegment->duration;
 
-    // Get the timestamp in the stream's time base
-    AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base;
-    int64_t targetTimestamp = (int64_t)(startTime / av_q2d(timeBase));
+    // Seek to the beginning of the segment if this is a new segment
+    if (lastAudioSegment != audioSegment) {
+        // Get the timestamp in the stream's time base
+        AVRational timeBase = audioSegment->audioData->audioFormatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base;
+        int64_t targetTimestamp = (int64_t)(startTime / av_q2d(timeBase));
 
-    if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->audioStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-        std::cerr << "Error seeking to timestamp: " << startTime << " seconds." << std::endl;
-        return;
+        if (av_seek_frame(audioSegment->audioData->audioFormatContext, audioSegment->audioData->audioStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking to timestamp: " << startTime << " seconds." << std::endl;
+            return;
+        }
+
+        // Flush the codec context buffers to clear any data from previous audio frames.
+        avcodec_flush_buffers(audioSegment->audioData->audioCodecContext);
     }
 
-    // Flush the codec context buffers to clear any data from previous audio frames.
-    avcodec_flush_buffers(audioSegment->audioData->audioCodecContext);
+    // Update last segment pointer
+    lastAudioSegment = audioSegment;
 
     // Decode audio frames and play them until reaching the end of the segment duration
     AVPacket packet;
-    while (av_read_frame(audioSegment->audioData->formatContext, &packet) >= 0) {
+    while (av_read_frame(audioSegment->audioData->audioFormatContext, &packet) >= 0) {
         if (packet.stream_index == audioSegment->audioData->audioStreamIndex) {
             // Send packet to the decoder
             int ret = avcodec_send_packet(audioSegment->audioData->audioCodecContext, &packet);
@@ -291,7 +309,7 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                 if (ret < 0) return;
 
-                double currentTime = audioSegment->audioData->audioFrame->pts * av_q2d(audioSegment->audioData->formatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base);
+                double currentTime = audioSegment->audioData->audioFrame->pts * av_q2d(audioSegment->audioData->audioFormatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base);
                 if (currentTime > endTime) break;
 
                 // Check if the audio frame is valid
