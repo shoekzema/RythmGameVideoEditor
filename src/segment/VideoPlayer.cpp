@@ -162,9 +162,6 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
             return false;
         }
 
-        // Clear any end-of-file flags that might prevent reading more frames
-        // videoSegment->videoData->formatContext->pb->eof_reached = 0;
-
         // Flush the codec context buffers to clear any data from previous frames.
         avcodec_flush_buffers(videoSegment->videoData->videoCodecContext);
     }
@@ -183,6 +180,17 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
 
             // Receive the frame from the decoder
             if (avcodec_receive_frame(videoSegment->videoData->videoCodecContext, videoSegment->videoData->frame) == 0) {
+                // Calculate the frame's presentation timestamp in seconds
+                double framePTS = videoSegment->videoData->frame->pts *
+                    av_q2d(videoSegment->videoData->formatContext->streams[videoSegment->videoData->videoStreamIndex]->time_base);
+
+                // Check if the frame is too late
+                double currentPlaybackTime = timeline->getCurrentTime() - videoSegment->timelinePosition;
+                if (framePTS < currentPlaybackTime - frameDropThreshold) {
+                    av_packet_unref(&packet);
+                    continue; // Skip this frame
+                }
+
                 // Allocate buffer for rgbFrame if not already done
                 if (!videoSegment->videoData->rgbFrame->data[0]) {
                     int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24,

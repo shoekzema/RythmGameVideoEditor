@@ -256,6 +256,7 @@ private:
 
     VideoSegment* lastVideoSegment = nullptr;
     AudioSegment* lastAudioSegment = nullptr;
+    double frameDropThreshold = 1.0 / 60.0; // 60 fps
 
     /**
      * @brief Save a video's data and start playing it.
