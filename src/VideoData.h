@@ -43,6 +43,7 @@ struct VideoData {
         }
     }
 
+    // Get the video duration in seconds
     double getVideoDuration() {
         if (!formatContext) return 0.0; // Return 0 if the format context is invalid
 
@@ -84,6 +85,7 @@ struct AudioData {
         }
     }
 
+    // Get the audio duration in seconds
     double getAudioDuration() {
         if (!formatContext) return 0.0; // Return 0 if the format context is invalid
 

@@ -3,11 +3,6 @@
 VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color), videoData(nullptr), videoTexture(nullptr), timeline(nullptr), audioBuffer(nullptr), audioBufferSize(0)
 {
-    // Subscribe to the VideoSelected event
-    eventManager->subscribe(EventType::VideoSelected, [this](VideoData* videoData) {
-        loadAndPlayVideo(videoData);
-    });
-
     // Initialize SDL audio device and resampler (SwrContext)
     SDL_zero(audioSpec);
     audioSpec.freq = 44100;
@@ -24,30 +19,16 @@ VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, Eve
     }
 
     // Allocate buffer for converted audio
-    audioBufferSize = 192000; // example size, adjust as necessary
+    // Use formula: bufferSize = sampleRate * bytesPerSample * channels * desiredLatencyInSeconds
+    // Example based on wanted audioSpec: 44100 (Hz) * 2 (16-bit) * 2 (stereo) * 1/60 (60 fps) = 2940 bytes
+    // Double the buffer size just in case to prevent problems with lag
+    audioBufferSize = (44100 / 60 * 2 * 2) * 2;
     audioBuffer = static_cast<uint8_t*>(av_malloc(audioBufferSize));
 }
 
 VideoPlayer::~VideoPlayer() {
     SDL_CloseAudioDevice(audioDevice);
     av_free(audioBuffer);
-}
-
-void VideoPlayer::loadAndPlayVideo(VideoData* videoData) {
-    if (videoData) {
-        VideoPlayer::videoData = videoData;
-
-        // Set frame timing based on video FPS
-        frameDurationMs = (1.0 / videoData->codecContext->framerate.num) * 1000.0; // ms per frame
-        lastFrameTime = 0; //SDL_GetTicks(); // Record the start time
-        playing = true;
-
-        playVideo();
-    }
-}
-
-void VideoPlayer::playVideo() {
-    playing = true;
 }
 
 void VideoPlayer::render() {
@@ -74,72 +55,7 @@ void VideoPlayer::render() {
     }
 }
 
-AVFrame* VideoPlayer::getNextFrame() {
-    AVPacket packet;
-    int frameFinished = 0;
-
-    while (av_read_frame(videoData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoData->streamIndex) {
-            // Send the packet to the codec for decoding
-            avcodec_send_packet(videoData->codecContext, &packet);
-
-            // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
-            if (ret >= 0) {
-                av_packet_unref(&packet);
-                return videoData->frame;  // Return the decoded frame
-            }
-        }
-        av_packet_unref(&packet);
-    }
-
-    return nullptr; // No more frames available
-}
-
-void VideoPlayer::updateTextureFromFrame(AVFrame* frame) {
-    // Convert the frame to RGB (similar to your original method)
-    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-    uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
-
-    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-    sws_scale(videoData->swsContext, frame->data, frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
-
-    // Update the SDL texture with the new frame
-    if (!videoTexture) {
-        videoTexture = SDL_CreateTexture(renderer,
-            SDL_PIXELFORMAT_RGB24,
-            SDL_TEXTUREACCESS_STREAMING,
-            videoData->codecContext->width,
-            videoData->codecContext->height);
-    }
-
-    // Lock the texture to update pixel data
-    void* pixels;
-    int pitch;
-    SDL_LockTexture(videoTexture, NULL, &pixels, &pitch);
-
-    for (int y = 0; y < videoData->codecContext->height; y++) {
-        memcpy((uint8_t*)pixels + y * pitch, videoData->rgbFrame->data[0] + y * videoData->rgbFrame->linesize[0], videoData->codecContext->width * 3);
-    }
-
-    SDL_UnlockTexture(videoTexture);
-}
-
-void VideoPlayer::handleEvent(SDL_Event& event) {
-    switch (event.type) {
-    case SDL_MOUSEBUTTONDOWN:
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            SDL_Point mouseButton = { event.button.x, event.button.y };
-
-            // If not in this Segment, we ignore it 
-            if (SDL_PointInRect(&mouseButton, &rect)) {
-                if (playing) playing = false;
-                else playing = true;
-            }
-        }
-        break;
-    }
-}
+void VideoPlayer::handleEvent(SDL_Event& event) { }
 
 void VideoPlayer::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };

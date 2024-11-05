@@ -26,9 +26,14 @@ public:
 
     SDL_Rect rect;
 
+    /**
+     * @brief Find a segment with type T. (Best to call from the root segment)
+     * @returns The first segment in the hierarchy with type T.
+     */
     template <typename T>
     T* findType();
 
+    // The virtual implementation method for findType(). Should only be called from findType() or any overwritten findTypeImpl().
     virtual Segment* findTypeImpl(const std::type_info& type);
 protected:
     SDL_Renderer* renderer;
@@ -36,7 +41,6 @@ protected:
     SDL_Color color;
 };
 
-// Template method definition
 template<typename T>
 T* Segment::findType() {
     return dynamic_cast<T*>(this->findTypeImpl(typeid(T)));
@@ -126,8 +130,11 @@ public:
      */
     void handleEvent(SDL_Event& event) override;
 
+    /**
+     * @brief Retrieve the asset data corresponding to the mouse position
+     * @return AssetData with VideoData and/or AudioData
+     */
     AssetData* getAssetFromAssetList(int mouseX, int mouseY);
-    double getVideoDuration();
 
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
@@ -137,10 +144,10 @@ private:
 
     /**
      * @brief Opens the video file, finds the stream with video data and set up the codec context to decode video.
-     * @param filepath The path to the video file.
+     * @param filepath The path to the video or audio file.
      * @return True if successful, otherwise false.
      */
-    bool loadVideo(const char* filepath);
+    bool loadFile(const char* filepath);
 
     /**
      * @brief Get a specific frame from a video.
@@ -148,9 +155,6 @@ private:
      * @return The chosen video frame.
      */
     AVFrame* getFrame(int frameIndex);
-
-    // Get the total number of frames of the current video.
-    int getFrameCount();
 
     /**
      * @brief Return a texture for a video thumbail.
@@ -169,12 +173,15 @@ private:
 #endif // _WIN32
 };
 
+// Segment in the timeline with a pointer to the corresponding video data and data on what of that video is to be played.
 struct VideoSegment {
     VideoData* videoData;      // Reference to the video data
     double sourceStartTime;    // Start time in the original video file
     double duration;           // Duration of this segment
     double timelinePosition;   // Position in the overall timeline
 };
+
+// Segment in the timeline with a pointer to the corresponding audio data and data on what of that audio is to be played.
 struct AudioSegment {
     AudioData* audioData;      // Reference to the audio data
     double sourceStartTime;    // Start time in the original audio file
@@ -197,26 +204,36 @@ public:
     void update(int x, int y, int w, int h) override;
 
     /**
-     * @brief Handle user events, like mouse clicks, drag-and-frop, etc.
+     * @brief Handle user events, like mouse clicks, drag-and-drop, etc.
      * @param event User interaction event code.
      */
     void handleEvent(SDL_Event& event) override;
 
+    // Get the video segment that should currently be playing
     VideoSegment* getCurrentVideoSegment();
+
+    // Get the audio segment that should currently be playing
     AudioSegment* getCurrentAudioSegment();
+
+    // Get the current time in the timeline (in seconds)
     double getCurrentTime();
+
+    // Set the current time (in seconds) in the timeline
     void setCurrentTime(double time);
 
+    // Add a video segment to the timeline video track
     void addVideoSegment(VideoData* data);
+
+    // Add an audio segment to the timeline audio track
     void addAudioSegment(AudioData* data);
 
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
-    std::vector<VideoSegment> videoSegments;
-    std::vector<AudioSegment> audioSegments;
-    double currentTime;   // The current time (and position) of the timeline
-    double startPlayTime; // The time in the timeline where playing starts from
-    Uint32 startTime = 0; // Absolute start time of playback (milliseconds)
+    std::vector<VideoSegment> videoSegments; // List of all VideoSegments on the video track
+    std::vector<AudioSegment> audioSegments; // List of all AudioSegments on the audio track
+    double currentTime;   // The current time (and position) of the timeline (in seconds)
+    double startPlayTime; // The time in the timeline where playing starts from (in seconds)
+    Uint32 startTime = 0; // Absolute start time of playback (in milliseconds)
 };
 
 /**
@@ -237,18 +254,11 @@ public:
      */
     void handleEvent(SDL_Event& event) override;
 
-    bool getVideoFrame(VideoSegment* videoSegment);
-    void playTimeline(Timeline* timeline);
-
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
     SDL_Texture* videoTexture; // Texture for the video frame
     VideoData* videoData; // Holds pointers to all VideoData for ffmpeg to be able to read frames
     Timeline* timeline; // Pointer towards the timeline segment
-
-    bool playing = false;
-    Uint32 lastFrameTime = 0;      // The time when the last frame was updated
-    double frameDurationMs = 0;    // Time per video frame in milliseconds
 
     SDL_AudioDeviceID audioDevice;
     SDL_AudioSpec audioSpec;
@@ -259,14 +269,12 @@ private:
     AudioSegment* lastAudioSegment = nullptr;
     double frameDropThreshold = 1.0 / 60.0; // 60 fps
 
-    /**
-     * @brief Save a video's data and start playing it.
-     * @param videoData The processed ffmpeg video data.
-     */
-    void loadAndPlayVideo(VideoData* videoData);
-    void playVideo();
-    void playAudioSegment(AudioSegment* audioSegment);
+    // Render video and audio based on the segments in the timeline at the current timeline time.
+    void playTimeline(Timeline* timeline);
 
-    AVFrame* getNextFrame();
-    void updateTextureFromFrame(AVFrame* frame);
+    // Get the current video frame from a videoSegment. The resulting frame is stored inside videoSegment.
+    bool getVideoFrame(VideoSegment* videoSegment);
+
+    // Play the current audio frame from an audioSegment.
+    void playAudioSegment(AudioSegment* audioSegment);
 };

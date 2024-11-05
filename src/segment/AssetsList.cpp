@@ -38,7 +38,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
 
     case SDL_DROPFILE: {
         const char* droppedFile = event.drop.file;
-        loadVideo(droppedFile);
+        loadFile(droppedFile);
         videoFrameTexture = getFrameTexture(droppedFile);
         SDL_free(event.drop.file);
         break;
@@ -52,20 +52,6 @@ AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
     return new AssetData(videoData, audioData);
 }
 
-double AssetsList::getVideoDuration() {
-    if (!videoData->formatContext) {
-        return 0.0;  // Return 0 if the asset or format context is invalid
-    }
-
-    // FFmpeg stores the duration in AVFormatContext::duration in AV_TIME_BASE units
-    int64_t durationInMicroseconds = videoData->formatContext->duration;
-
-    // Convert to seconds: AV_TIME_BASE is 1,000,000 (microseconds per second)
-    double durationInSeconds = (double)durationInMicroseconds / AV_TIME_BASE;
-
-    return durationInSeconds;
-}
-
 Segment* AssetsList::findTypeImpl(const std::type_info& type) {
     if (type == typeid(AssetsList)) {
         return this;
@@ -77,7 +63,7 @@ void AssetsList::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
-bool AssetsList::loadVideo(const char* filename) {
+bool AssetsList::loadFile(const char* filename) {
     // Open the file and reads its header, populating formatContext.
     videoData->formatContext = avformat_alloc_context();
     if (avformat_open_input(&videoData->formatContext, filename, nullptr, nullptr) != 0) {
@@ -275,7 +261,6 @@ bool AssetsList::loadVideo(const char* filename) {
     return true; // Successfully loaded the video/audio file
 }
 
-
 AVFrame* AssetsList::getFrame(int frameIndex) {
     AVPacket packet;
     int frameFinished = 0;
@@ -309,11 +294,6 @@ AVFrame* AssetsList::getFrame(int frameIndex) {
     }
 
     return NULL;  // Frame not found
-}
-
-int AssetsList::getFrameCount()
-{
-    return 0; // TODO
 }
 
 SDL_Texture* AssetsList::getFrameTexture(const char* filepath) {
