@@ -122,7 +122,7 @@ void Timeline::addVideoSegment(VideoData* data) {
     videoSegments.push_back(videoSegment);
 }
 
-void Timeline::addAudioSegment(VideoData* data) {
+void Timeline::addAudioSegment(AudioData* data) {
     double position = 0.0;
     // Get the x-position on the right of the last audio segment
     if (!audioSegments.empty()) {
@@ -134,7 +134,7 @@ void Timeline::addAudioSegment(VideoData* data) {
     AudioSegment audioSegment = {
         .audioData = data,
         .sourceStartTime = 0.0,
-        .duration = data->getVideoDuration(),
+        .duration = data->getAudioDuration(),
         .timelinePosition = position
     };
     audioSegments.push_back(audioSegment);

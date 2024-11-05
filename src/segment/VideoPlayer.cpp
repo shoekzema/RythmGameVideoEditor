@@ -38,7 +38,7 @@ void VideoPlayer::loadAndPlayVideo(VideoData* videoData) {
         VideoPlayer::videoData = videoData;
 
         // Set frame timing based on video FPS
-        frameDurationMs = (1.0 / videoData->videoCodecContext->framerate.num) * 1000.0; // ms per frame
+        frameDurationMs = (1.0 / videoData->codecContext->framerate.num) * 1000.0; // ms per frame
         lastFrameTime = 0; //SDL_GetTicks(); // Record the start time
         playing = true;
 
@@ -79,12 +79,12 @@ AVFrame* VideoPlayer::getNextFrame() {
     int frameFinished = 0;
 
     while (av_read_frame(videoData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoData->videoStreamIndex) {
+        if (packet.stream_index == videoData->streamIndex) {
             // Send the packet to the codec for decoding
-            avcodec_send_packet(videoData->videoCodecContext, &packet);
+            avcodec_send_packet(videoData->codecContext, &packet);
 
             // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(videoData->videoCodecContext, videoData->frame);
+            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
             if (ret >= 0) {
                 av_packet_unref(&packet);
                 return videoData->frame;  // Return the decoded frame
@@ -98,19 +98,19 @@ AVFrame* VideoPlayer::getNextFrame() {
 
 void VideoPlayer::updateTextureFromFrame(AVFrame* frame) {
     // Convert the frame to RGB (similar to your original method)
-    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->videoCodecContext->width, videoData->videoCodecContext->height, 1);
+    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
     uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
 
-    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->videoCodecContext->width, videoData->videoCodecContext->height, 1);
-    sws_scale(videoData->swsContext, frame->data, frame->linesize, 0, videoData->videoCodecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
+    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
+    sws_scale(videoData->swsContext, frame->data, frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
 
     // Update the SDL texture with the new frame
     if (!videoTexture) {
         videoTexture = SDL_CreateTexture(renderer,
             SDL_PIXELFORMAT_RGB24,
             SDL_TEXTUREACCESS_STREAMING,
-            videoData->videoCodecContext->width,
-            videoData->videoCodecContext->height);
+            videoData->codecContext->width,
+            videoData->codecContext->height);
     }
 
     // Lock the texture to update pixel data
@@ -118,8 +118,8 @@ void VideoPlayer::updateTextureFromFrame(AVFrame* frame) {
     int pitch;
     SDL_LockTexture(videoTexture, NULL, &pixels, &pitch);
 
-    for (int y = 0; y < videoData->videoCodecContext->height; y++) {
-        memcpy((uint8_t*)pixels + y * pitch, videoData->rgbFrame->data[0] + y * videoData->rgbFrame->linesize[0], videoData->videoCodecContext->width * 3);
+    for (int y = 0; y < videoData->codecContext->height; y++) {
+        memcpy((uint8_t*)pixels + y * pitch, videoData->rgbFrame->data[0] + y * videoData->rgbFrame->linesize[0], videoData->codecContext->width * 3);
     }
 
     SDL_UnlockTexture(videoTexture);
@@ -145,90 +145,10 @@ void VideoPlayer::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
-bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
-    if (!videoSegment) {
-        std::cerr << "Invalid video segment" << std::endl;
-        return false;
-    }
-
-    // Seek to the beginning of the segment if this is a new segment
-    if (lastVideoSegment != videoSegment) {
-        // Get the timestamp in the stream's time base
-        AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->videoStreamIndex]->time_base;
-        int64_t targetTimestamp = (int64_t)(videoSegment->sourceStartTime / av_q2d(timeBase));
-
-        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->videoStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "Error seeking to timestamp: " << videoSegment->sourceStartTime << " seconds." << std::endl;
-            return false;
-        }
-
-        // Flush the codec context buffers to clear any data from previous frames.
-        avcodec_flush_buffers(videoSegment->videoData->videoCodecContext);
-    }
-
-    // Update last segment pointer
-    lastVideoSegment = videoSegment;
-
-    AVPacket packet;
-    while (av_read_frame(videoSegment->videoData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoSegment->videoData->videoStreamIndex) {
-            // Send packet to the decoder
-            if (avcodec_send_packet(videoSegment->videoData->videoCodecContext, &packet) != 0) {
-                av_packet_unref(&packet);
-                continue;
-            }
-
-            // Receive the frame from the decoder
-            if (avcodec_receive_frame(videoSegment->videoData->videoCodecContext, videoSegment->videoData->frame) == 0) {
-                // Calculate the frame's presentation timestamp in seconds
-                double framePTS = videoSegment->videoData->frame->pts *
-                    av_q2d(videoSegment->videoData->formatContext->streams[videoSegment->videoData->videoStreamIndex]->time_base);
-
-                // Check if the frame is too late
-                double currentPlaybackTime = timeline->getCurrentTime() - videoSegment->timelinePosition;
-                if (framePTS < currentPlaybackTime - frameDropThreshold) {
-                    av_packet_unref(&packet);
-                    continue; // Skip this frame
-                }
-
-                // Allocate buffer for rgbFrame if not already done
-                if (!videoSegment->videoData->rgbFrame->data[0]) {
-                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24,
-                        videoSegment->videoData->videoCodecContext->width,
-                        videoSegment->videoData->videoCodecContext->height, 1);
-                    uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
-                    av_image_fill_arrays(videoSegment->videoData->rgbFrame->data,
-                        videoSegment->videoData->rgbFrame->linesize,
-                        buffer, AV_PIX_FMT_RGB24,
-                        videoSegment->videoData->videoCodecContext->width,
-                        videoSegment->videoData->videoCodecContext->height, 1);
-                }
-
-                // Convert the frame from YUV to RGB
-                sws_scale(videoSegment->videoData->swsContext,
-                    videoSegment->videoData->frame->data,
-                    videoSegment->videoData->frame->linesize,
-                    0, 
-                    videoSegment->videoData->videoCodecContext->height,
-                    videoSegment->videoData->rgbFrame->data,
-                    videoSegment->videoData->rgbFrame->linesize);
-
-                av_packet_unref(&packet);  // Free the packet
-                return true; // Successfully got the frame
-            }
-        }
-        av_packet_unref(&packet);  // Free the packet
-    }
-    return false; // No frame found or error occurred
-}
-
 void VideoPlayer::playTimeline(Timeline* timeline) {
     // Get the current video segment from the timeline
     VideoSegment* currentVideoSegment = timeline->getCurrentVideoSegment();
-    if (!currentVideoSegment) {
-        std::cerr << "No video segment found at the current timeline position." << std::endl;
-    }
-    else {
+    if (currentVideoSegment) {
         // Get and decode the video frame at the corresponding time in the segment
         if (!getVideoFrame(currentVideoSegment)) {
             std::cerr << "Failed to retrieve video frame." << std::endl;
@@ -243,8 +163,8 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
                     renderer,
                     SDL_PIXELFORMAT_RGB24,
                     SDL_TEXTUREACCESS_STREAMING,
-                    currentVideoSegment->videoData->videoCodecContext->width,
-                    currentVideoSegment->videoData->videoCodecContext->height
+                    currentVideoSegment->videoData->codecContext->width,
+                    currentVideoSegment->videoData->codecContext->height
                 );
                 if (!videoTexture) {
                     std::cerr << "Failed to create SDL texture: " << SDL_GetError() << std::endl;
@@ -276,6 +196,83 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
     }
 }
 
+bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
+    if (!videoSegment) {
+        std::cerr << "Invalid video segment" << std::endl;
+        return false;
+    }
+
+    // Seek to the beginning of the segment if this is a new segment
+    if (lastVideoSegment != videoSegment) {
+        // Get the timestamp in the stream's time base
+        AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base;
+        int64_t targetTimestamp = (int64_t)(videoSegment->sourceStartTime / av_q2d(timeBase));
+
+        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking video to timestamp: " << videoSegment->sourceStartTime << " seconds." << std::endl;
+            return false;
+        }
+
+        // Flush the codec context buffers to clear any data from previous frames.
+        avcodec_flush_buffers(videoSegment->videoData->codecContext);
+    }
+
+    // Update last segment pointer
+    lastVideoSegment = videoSegment;
+
+    AVPacket packet;
+    while (av_read_frame(videoSegment->videoData->formatContext, &packet) >= 0) {
+        if (packet.stream_index == videoSegment->videoData->streamIndex) {
+            // Send packet to the decoder
+            if (avcodec_send_packet(videoSegment->videoData->codecContext, &packet) != 0) {
+                av_packet_unref(&packet);
+                continue;
+            }
+
+            // Receive the frame from the decoder
+            if (avcodec_receive_frame(videoSegment->videoData->codecContext, videoSegment->videoData->frame) == 0) {
+                // Calculate the frame's presentation timestamp in seconds
+                double framePTS = videoSegment->videoData->frame->pts *
+                    av_q2d(videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base);
+
+                // Check if the frame is too late
+                double currentPlaybackTime = timeline->getCurrentTime() - videoSegment->timelinePosition;
+                if (framePTS < currentPlaybackTime - frameDropThreshold) {
+                    av_packet_unref(&packet);
+                    continue; // Skip this frame
+                }
+
+                // Allocate buffer for rgbFrame if not already done
+                if (!videoSegment->videoData->rgbFrame->data[0]) {
+                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24,
+                        videoSegment->videoData->codecContext->width,
+                        videoSegment->videoData->codecContext->height, 1);
+                    uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
+                    av_image_fill_arrays(videoSegment->videoData->rgbFrame->data,
+                        videoSegment->videoData->rgbFrame->linesize,
+                        buffer, AV_PIX_FMT_RGB24,
+                        videoSegment->videoData->codecContext->width,
+                        videoSegment->videoData->codecContext->height, 1);
+                }
+
+                // Convert the frame from YUV to RGB
+                sws_scale(videoSegment->videoData->swsContext,
+                    videoSegment->videoData->frame->data,
+                    videoSegment->videoData->frame->linesize,
+                    0,
+                    videoSegment->videoData->codecContext->height,
+                    videoSegment->videoData->rgbFrame->data,
+                    videoSegment->videoData->rgbFrame->linesize);
+
+                av_packet_unref(&packet);  // Free the packet
+                return true; // Successfully got the frame
+            }
+        }
+        av_packet_unref(&packet);  // Free the packet
+    }
+    return false; // No frame found or error occurred
+}
+
 void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
     if (!audioSegment) {
         std::cerr << "Invalid audio segment" << std::endl;
@@ -288,16 +285,19 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
     // Seek to the beginning of the segment if this is a new segment
     if (lastAudioSegment != audioSegment) {
         // Get the timestamp in the stream's time base
-        AVRational timeBase = audioSegment->audioData->audioFormatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base;
+        AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->streamIndex]->time_base;
         int64_t targetTimestamp = (int64_t)(startTime / av_q2d(timeBase));
 
-        if (av_seek_frame(audioSegment->audioData->audioFormatContext, audioSegment->audioData->audioStreamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "Error seeking to timestamp: " << startTime << " seconds." << std::endl;
+        if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking audio to timestamp: " << startTime << " seconds." << std::endl;
             return;
         }
 
         // Flush the codec context buffers to clear any data from previous audio frames.
-        avcodec_flush_buffers(audioSegment->audioData->audioCodecContext);
+        avcodec_flush_buffers(audioSegment->audioData->codecContext);
+
+        // Clear the audio queue
+        SDL_ClearQueuedAudio(audioDevice);
     }
 
     // Update last segment pointer
@@ -305,33 +305,33 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
 
     // Decode audio frames and play them until reaching the end of the segment duration
     AVPacket packet;
-    while (av_read_frame(audioSegment->audioData->audioFormatContext, &packet) >= 0) {
-        if (packet.stream_index == audioSegment->audioData->audioStreamIndex) {
+    while (av_read_frame(audioSegment->audioData->formatContext, &packet) >= 0) {
+        if (packet.stream_index == audioSegment->audioData->streamIndex) {
             // Send packet to the decoder
-            int ret = avcodec_send_packet(audioSegment->audioData->audioCodecContext, &packet);
+            int ret = avcodec_send_packet(audioSegment->audioData->codecContext, &packet);
             if (ret < 0) break;
             while (ret >= 0) {
                 // Receive the audio frame from the decoder
-                ret = avcodec_receive_frame(audioSegment->audioData->audioCodecContext, audioSegment->audioData->audioFrame);
+                ret = avcodec_receive_frame(audioSegment->audioData->codecContext, audioSegment->audioData->frame);
 
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                 if (ret < 0) return;
 
-                double currentTime = audioSegment->audioData->audioFrame->pts * av_q2d(audioSegment->audioData->audioFormatContext->streams[audioSegment->audioData->audioStreamIndex]->time_base);
+                double currentTime = audioSegment->audioData->frame->pts * av_q2d(audioSegment->audioData->formatContext->streams[audioSegment->audioData->streamIndex]->time_base);
                 if (currentTime > endTime) break;
 
                 // Check if the audio frame is valid
-                if (!audioSegment->audioData->audioFrame || !audioSegment->audioData->audioFrame->data[0]) {
+                if (!audioSegment->audioData->frame || !audioSegment->audioData->frame->data[0]) {
                     std::cerr << "Invalid audio frame" << std::endl;
                     return;
                 }
 
                 // Resample and convert audio to SDL format
-                int numSamples = swr_convert(audioSegment->audioData->swrCtx,
-                    &audioBuffer,                                               // output buffer
-                    audioSegment->audioData->audioFrame->nb_samples * 2,        // number of samples to output (2 for stereo)
-                    (const uint8_t**)audioSegment->audioData->audioFrame->data, // input buffer
-                    audioSegment->audioData->audioFrame->nb_samples);           // number of input samples
+                int numSamples = swr_convert(audioSegment->audioData->swrContext,
+                    &audioBuffer,                                          // output buffer
+                    audioSegment->audioData->frame->nb_samples * 2,        // number of samples to output (2 for stereo)
+                    (const uint8_t**)audioSegment->audioData->frame->data, // input buffer
+                    audioSegment->audioData->frame->nb_samples);           // number of input samples
 
                 if (numSamples < 0) {
                     std::cerr << "Error in resampling audio" << std::endl;

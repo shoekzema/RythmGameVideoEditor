@@ -126,13 +126,14 @@ public:
      */
     void handleEvent(SDL_Event& event) override;
 
-    VideoData* getAssetFromAssetList(int mouseX, int mouseY);
+    AssetData* getAssetFromAssetList(int mouseX, int mouseY);
     double getVideoDuration();
 
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
     SDL_Texture* videoFrameTexture; // The texture to render
-    VideoData* videoData; // Holds all VideoData that ffmpeg needs to processing
+    VideoData* videoData; // Holds all VideoData that ffmpeg needs for processing video
+    AudioData* audioData; // Holds all AudioData that ffmpeg needs for processing audio
 
     /**
      * @brief Opens the video file, finds the stream with video data and set up the codec context to decode video.
@@ -175,7 +176,7 @@ struct VideoSegment {
     double timelinePosition;   // Position in the overall timeline
 };
 struct AudioSegment {
-    VideoData* audioData;      // Reference to the audio data
+    AudioData* audioData;      // Reference to the audio data
     double sourceStartTime;    // Start time in the original audio file
     double duration;           // Duration of this segment
     double timelinePosition;   // Position in the overall timeline
@@ -207,7 +208,7 @@ public:
     void setCurrentTime(double time);
 
     void addVideoSegment(VideoData* data);
-    void addAudioSegment(VideoData* data);
+    void addAudioSegment(AudioData* data);
 
     Segment* findTypeImpl(const std::type_info& type) override;
 private:

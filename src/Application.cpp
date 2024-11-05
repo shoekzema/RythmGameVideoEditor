@@ -81,8 +81,8 @@ void Application::handleEvents() {
                 Timeline* timeline = rootSegment->findType<Timeline>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
-                    timeline->addVideoSegment(draggedAsset);
-                    timeline->addAudioSegment(draggedAsset);
+                    if (draggedAsset->videoData) timeline->addVideoSegment(draggedAsset->videoData);
+                    if (draggedAsset->audioData) timeline->addAudioSegment(draggedAsset->audioData);
                 }
 
                 // Reset the dragging state

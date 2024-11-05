@@ -30,5 +30,5 @@ private:
 
     // Shared variables for dragging between segments
     bool isDragging = false;
-    VideoData* draggedAsset = nullptr;
+    AssetData* draggedAsset = nullptr;
 };
