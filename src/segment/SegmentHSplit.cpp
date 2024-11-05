@@ -1,11 +1,11 @@
 #include "Segment.h"
 
-SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false) 
+SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color), draggingDivider(false), resizing(false)
 {
     divider = { x, y + h / 2 - dividerThickness / 2, w, dividerThickness };
-    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, eventManager);
-    bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager);
+    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, eventManager, this);
+    bottomSegment = new Timeline(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager, this);
 }
 
 SegmentHSplit::~SegmentHSplit() {
@@ -66,4 +66,21 @@ void SegmentHSplit::handleEvent(SDL_Event& event) {
 
     topSegment->handleEvent(event);
     bottomSegment->handleEvent(event);
+}
+
+Segment* SegmentHSplit::findTypeImpl(const std::type_info& type) {
+    if (type == typeid(SegmentHSplit)) {
+        return this;
+    }
+    if (topSegment) {
+        if (Segment* found = topSegment->findTypeImpl(type)) {
+            return found;
+        }
+    }
+    if (bottomSegment) {
+        if (Segment* found = bottomSegment->findTypeImpl(type)) {
+            return found;
+        }
+    }
+    return nullptr;
 }

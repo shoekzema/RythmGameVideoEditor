@@ -27,4 +27,8 @@ private:
     int screenWidth, screenHeight;
 
     Segment* rootSegment;
+
+    // Shared variables for dragging between segments
+    bool isDragging = false;
+    AssetData* draggedAsset = nullptr;
 };

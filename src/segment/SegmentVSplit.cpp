@@ -1,11 +1,11 @@
 #include "Segment.h"
 
-SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, color), draggingDivider(false), resizing(false)
+SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color), draggingDivider(false), resizing(false)
 {
     divider = { x + w / 2 - dividerThickness / 2, y, dividerThickness, h };
-    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager);
-    rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager);
+    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
+    rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
 }
 
 SegmentVSplit::~SegmentVSplit() {
@@ -64,4 +64,21 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
 
     leftSegment->handleEvent(event);
     rightSegment->handleEvent(event);
+}
+
+Segment* SegmentVSplit::findTypeImpl(const std::type_info& type) {
+    if (type == typeid(SegmentVSplit)) {
+        return this;
+    }
+    if (leftSegment) {
+        if (Segment* found = leftSegment->findTypeImpl(type)) {
+            return found;
+        }
+    }
+    if (rightSegment) {
+        if (Segment* found = rightSegment->findTypeImpl(type)) {
+            return found;
+        }
+    }
+    return nullptr;
 }

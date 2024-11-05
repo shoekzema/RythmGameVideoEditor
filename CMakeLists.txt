@@ -26,7 +26,7 @@ set(SOURCES
 
 
 # Add source to this project's executable.
-add_executable (RythmGameVideoEditor         "src/main.cpp"  "src/Application.h" "src/Application.cpp" "src/segment/Segment.h" "src/segment/Segment.cpp" "src/segment/SegmentHSplit.cpp" "src/segment/SegmentVSplit.cpp" "src/util.h" "src/segment/AssetsList.cpp" "src/util.cpp" "src/segment/VideoPlayer.cpp")
+add_executable (RythmGameVideoEditor         "src/main.cpp"  "src/Application.h" "src/Application.cpp" "src/segment/Segment.h" "src/segment/Segment.cpp" "src/segment/SegmentHSplit.cpp" "src/segment/SegmentVSplit.cpp" "src/util.h" "src/segment/AssetsList.cpp" "src/util.cpp" "src/segment/VideoPlayer.cpp" "src/segment/Timeline.cpp" "src/VideoData.h")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET RythmGameVideoEditor PROPERTY CXX_STANDARD 20)
@@ -52,6 +52,7 @@ target_link_libraries(RythmGameVideoEditor
     ${FFMPEG_LIBRARIES}/avcodec.lib
     ${FFMPEG_LIBRARIES}/avformat.lib
     ${FFMPEG_LIBRARIES}/avutil.lib
+    ${FFMPEG_LIBRARIES}/swresample.lib
     ${FFMPEG_LIBRARIES}/swscale.lib
 )
 
