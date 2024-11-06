@@ -4,13 +4,24 @@ SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer,
     : Segment(x, y, w, h, renderer, eventManager, parent, color), draggingDivider(false), resizing(false)
 {
     divider = { x, y + h / 2 - dividerThickness / 2, w, dividerThickness };
-    topSegment    = new SegmentVSplit(x, y,                          w, h / 2 - dividerThickness / 2, renderer, eventManager, this);
-    bottomSegment = new Timeline(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager, this);
+    topSegment    = new Segment(x, y,                                w, h / 2 - dividerThickness / 2, renderer, eventManager, this);
+    bottomSegment = new Segment(x, y + h / 2 + dividerThickness / 2, w, h / 2 - dividerThickness / 2, renderer, eventManager, this);
 }
 
 SegmentHSplit::~SegmentHSplit() {
     if (topSegment) delete topSegment;
     if (bottomSegment) delete bottomSegment;
+}
+
+void SegmentHSplit::setTopSegment(Segment* segment) {
+    SDL_Rect prevRect = topSegment->rect;
+    topSegment = segment;
+    topSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
+}
+void SegmentHSplit::setBottomSegment(Segment* segment) {
+    SDL_Rect prevRect = bottomSegment->rect;
+    bottomSegment = segment;
+    bottomSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
 }
 
 void SegmentHSplit::render() {

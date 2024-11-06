@@ -55,6 +55,9 @@ public:
     SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentHSplit();
 
+    void setTopSegment(Segment* segment);
+    void setBottomSegment(Segment* segment);
+
     void render() override;
     void update(int x, int y, int w, int h) override;
 
@@ -87,6 +90,9 @@ class SegmentVSplit : public Segment {
 public:
     SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentVSplit();
+
+    void setLeftSegment(Segment* segment);
+    void setRightSegment(Segment* segment);
 
     void render() override;
     void update(int x, int y, int w, int h) override;

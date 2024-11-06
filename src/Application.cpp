@@ -4,7 +4,17 @@ Application::Application(int width, int height)
     : window(nullptr), renderer(nullptr), running(false),
     screenWidth(width), screenHeight(height) {
     if (init()) {
-        rootSegment = new SegmentHSplit(0, 0, screenWidth, screenHeight, renderer, &eventManager);
+        SegmentHSplit* root = new SegmentHSplit(0, 0, screenWidth, screenHeight, renderer, &eventManager);
+            SegmentVSplit* top = new SegmentVSplit(0, 0, screenWidth, screenHeight, renderer, &eventManager, root);
+            root->setTopSegment(top);
+                Segment* assetList   = new AssetsList(   0, 0, screenWidth, screenHeight, renderer, &eventManager, top);
+                Segment* videoPlayer = new VideoPlayer(0, 0, screenWidth, screenHeight, renderer, &eventManager, top);
+                top->setLeftSegment(assetList);
+                top->setRightSegment(videoPlayer);
+            Segment* timeLine = new Timeline(0, 0, screenWidth, screenHeight, renderer, &eventManager, root);
+            root->setBottomSegment(timeLine);
+
+        rootSegment = root;
         running = true;
     }
 }

@@ -4,13 +4,24 @@ SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer,
     : Segment(x, y, w, h, renderer, eventManager, parent, color), draggingDivider(false), resizing(false)
 {
     divider = { x + w / 2 - dividerThickness / 2, y, dividerThickness, h };
-    leftSegment  = new AssetsList(x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
+    leftSegment  = new AssetsList( x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
     rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
 }
 
 SegmentVSplit::~SegmentVSplit() {
     if (leftSegment) delete leftSegment;
     if (rightSegment) delete rightSegment;
+}
+
+void SegmentVSplit::setLeftSegment(Segment* segment) {
+    SDL_Rect prevRect = leftSegment->rect;
+    leftSegment = segment;
+    leftSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
+}
+void SegmentVSplit::setRightSegment(Segment* segment) {
+    SDL_Rect prevRect = rightSegment->rect;
+    rightSegment = segment;
+    rightSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
 }
 
 void SegmentVSplit::render() {
