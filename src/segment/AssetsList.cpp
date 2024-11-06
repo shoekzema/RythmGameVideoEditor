@@ -1,21 +1,21 @@
 #include "Segment.h"
 
 AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color), videoData(new VideoData()), audioData(new AudioData()), videoFrameTexture(nullptr) { }
+    : Segment(x, y, w, h, renderer, eventManager, parent, color) { }
 
 AssetsList::~AssetsList() {
-    if (videoData) delete videoData;
-    if (audioData) delete audioData;
-    if (videoFrameTexture) SDL_DestroyTexture(videoFrameTexture);
+    if (m_videoData) delete m_videoData;
+    if (m_audioData) delete m_audioData;
+    if (m_videoFrameTexture) SDL_DestroyTexture(m_videoFrameTexture);
 }
 
 void AssetsList::render() {
-    if (videoFrameTexture) {
-        SDL_RenderCopy(renderer, videoFrameTexture, NULL, &rect);
+    if (m_videoFrameTexture) {
+        SDL_RenderCopy(p_renderer, m_videoFrameTexture, NULL, &rect);
     }
     else {
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-        SDL_RenderFillRect(renderer, &rect); // Draw background
+        SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
+        SDL_RenderFillRect(p_renderer, &rect); // Draw background
     }
 }
 
@@ -39,7 +39,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
     case SDL_DROPFILE: {
         const char* droppedFile = event.drop.file;
         loadFile(droppedFile);
-        videoFrameTexture = getFrameTexture(droppedFile);
+        m_videoFrameTexture = getFrameTexture(droppedFile);
         SDL_free(event.drop.file);
         break;
     }
@@ -49,7 +49,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
 AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
     // Retrieve the asset corresponding to the mouse position
     // TODO: (You will have a list or array of assets in the AssetList class)
-    return new AssetData(videoData, audioData);
+    return new AssetData(m_videoData, m_audioData);
 }
 
 Segment* AssetsList::findTypeImpl(const std::type_info& type) {
@@ -65,156 +65,156 @@ void AssetsList::update(int x, int y, int w, int h) {
 
 bool AssetsList::loadFile(const char* filename) {
     // Open the file and reads its header, populating formatContext.
-    videoData->formatContext = avformat_alloc_context();
-    if (avformat_open_input(&videoData->formatContext, filename, nullptr, nullptr) != 0) {
+    m_videoData->formatContext = avformat_alloc_context();
+    if (avformat_open_input(&m_videoData->formatContext, filename, nullptr, nullptr) != 0) {
         std::cerr << "Could not open input file: " << filename << std::endl;
-        delete videoData;
+        delete m_videoData;
         return false;
     }
-    audioData->formatContext = avformat_alloc_context();
-    if (avformat_open_input(&audioData->formatContext, filename, nullptr, nullptr) != 0) {
+    m_audioData->formatContext = avformat_alloc_context();
+    if (avformat_open_input(&m_audioData->formatContext, filename, nullptr, nullptr) != 0) {
         std::cerr << "Could not open input file: " << filename << std::endl;
-        delete audioData;
+        delete m_audioData;
         return false;
     }
 
     // Find information about streams (audio, video) within the file.
-    if (avformat_find_stream_info(videoData->formatContext, NULL) < 0) {
+    if (avformat_find_stream_info(m_videoData->formatContext, NULL) < 0) {
         std::cerr << "Could not find stream information." << std::endl;
-        delete videoData;
+        delete m_videoData;
         return false;
     }
-    if (avformat_find_stream_info(audioData->formatContext, NULL) < 0) {
+    if (avformat_find_stream_info(m_audioData->formatContext, NULL) < 0) {
         std::cerr << "Could not find stream information." << std::endl;
-        delete audioData;
+        delete m_audioData;
         return false;
     }
 
     // Initialize stream indices as invalid
-    videoData->streamIndex = -1;
-    audioData->streamIndex = -1;
+    m_videoData->streamIndex = -1;
+    m_audioData->streamIndex = -1;
 
     // Find the first video and audio streams
-    for (unsigned int i = 0; i < videoData->formatContext->nb_streams; i++) {
-        AVMediaType codecType = videoData->formatContext->streams[i]->codecpar->codec_type;
-        if (codecType == AVMEDIA_TYPE_VIDEO && videoData->streamIndex == -1) {
+    for (unsigned int i = 0; i < m_videoData->formatContext->nb_streams; i++) {
+        AVMediaType codecType = m_videoData->formatContext->streams[i]->codecpar->codec_type;
+        if (codecType == AVMEDIA_TYPE_VIDEO && m_videoData->streamIndex == -1) {
             // Check for album art characteristics
-            AVStream* stream = videoData->formatContext->streams[i];
+            AVStream* stream = m_videoData->formatContext->streams[i];
             if (stream->nb_frames <= 1 || stream->r_frame_rate.num < 2) {
                 // This is likely album art; ignore it as a video stream
                 continue;
             }
-            videoData->streamIndex = i;
+            m_videoData->streamIndex = i;
         }
-        if (codecType == AVMEDIA_TYPE_AUDIO && audioData->streamIndex == -1) {
-            audioData->streamIndex = i;
+        if (codecType == AVMEDIA_TYPE_AUDIO && m_audioData->streamIndex == -1) {
+            m_audioData->streamIndex = i;
         }
     }
 
     // Check for the presence of video and/or audio streams
-    bool hasVideo = videoData->streamIndex != -1;
-    bool hasAudio = audioData->streamIndex != -1;
+    bool hasVideo = m_videoData->streamIndex != -1;
+    bool hasAudio = m_audioData->streamIndex != -1;
 
     if (!hasVideo && !hasAudio) {
         std::cerr << "Could not find audio or video stream in file." << std::endl;
-        delete videoData;
-        delete audioData;
+        delete m_videoData;
+        delete m_audioData;
         return false;
     }
 
     // If a video stream is present, set up the video decoder
     if (hasVideo) {
         // Get the video codec parameters
-        AVCodecParameters* videoCodecParams = videoData->formatContext->streams[videoData->streamIndex]->codecpar;
+        AVCodecParameters* videoCodecParams = m_videoData->formatContext->streams[m_videoData->streamIndex]->codecpar;
         const AVCodec* videoCodec = avcodec_find_decoder(videoCodecParams->codec_id); // A specific codec for decoding video (e.g., H.264).
         if (!videoCodec) {
             std::cerr << "Unsupported video codec!" << std::endl;
-            delete videoData;
-            delete audioData;
+            delete m_videoData;
+            delete m_audioData;
             return false;
         }
 
         // Allocate video codec context
-        videoData->codecContext = avcodec_alloc_context3(videoCodec);
-        if (!videoData->codecContext) {
+        m_videoData->codecContext = avcodec_alloc_context3(videoCodec);
+        if (!m_videoData->codecContext) {
             std::cerr << "Could not allocate video codec context." << std::endl;
-            delete videoData;
-            delete audioData;
+            delete m_videoData;
+            delete m_audioData;
             return false;
         }
 
         // Copy codec parameters to the video codec context
-        if (avcodec_parameters_to_context(videoData->codecContext, videoCodecParams) < 0) {
+        if (avcodec_parameters_to_context(m_videoData->codecContext, videoCodecParams) < 0) {
             std::cerr << "Could not copy video codec parameters to context." << std::endl;
-            delete videoData;
-            delete audioData;
+            delete m_videoData;
+            delete m_audioData;
             return false;
         }
 
         // Open the video codec
-        if (avcodec_open2(videoData->codecContext, videoCodec, nullptr) < 0) {
+        if (avcodec_open2(m_videoData->codecContext, videoCodec, nullptr) < 0) {
             std::cerr << "Could not open video codec." << std::endl;
-            delete videoData;
-            delete audioData;
+            delete m_videoData;
+            delete m_audioData;
             return false;
         }
 
         // Allocate memory for video frames for decoded video and converted RGB format
-        videoData->frame = av_frame_alloc();
-        videoData->rgbFrame = av_frame_alloc();
+        m_videoData->frame = av_frame_alloc();
+        m_videoData->rgbFrame = av_frame_alloc();
 
         // Set up SwsContext for frame conversion (YUV -> RGB)
         // Initializes the scaling / conversion context, used to convert the decoded frame(YUV format) to RGB format.
-        videoData->swsContext = sws_getContext(videoData->codecContext->width, videoData->codecContext->height, videoData->codecContext->pix_fmt,
-            videoData->codecContext->width, videoData->codecContext->height, AV_PIX_FMT_RGB24,
+        m_videoData->swsContext = sws_getContext(m_videoData->codecContext->width, m_videoData->codecContext->height, m_videoData->codecContext->pix_fmt,
+            m_videoData->codecContext->width, m_videoData->codecContext->height, AV_PIX_FMT_RGB24,
             SWS_BILINEAR, NULL, NULL, NULL);
     }
     else {
-        delete videoData;
-        videoData = nullptr;
+        delete m_videoData;
+        m_videoData = nullptr;
     }
 
     // If an audio stream is present, set up the audio decoder
     if (hasAudio) {
         // Get the codec parameters for audio
-        AVCodecParameters* audioCodecParams = audioData->formatContext->streams[audioData->streamIndex]->codecpar;
+        AVCodecParameters* audioCodecParams = m_audioData->formatContext->streams[m_audioData->streamIndex]->codecpar;
         const AVCodec* audioCodec = avcodec_find_decoder(audioCodecParams->codec_id);
         if (!audioCodec) {
             std::cerr << "Unsupported audio codec!" << std::endl;
-            delete audioData;
+            delete m_audioData;
             return false;
         }
 
         // Allocate audio codec context
-        audioData->codecContext = avcodec_alloc_context3(audioCodec);
-        if (!audioData->codecContext) {
+        m_audioData->codecContext = avcodec_alloc_context3(audioCodec);
+        if (!m_audioData->codecContext) {
             std::cerr << "Could not allocate audio codec context." << std::endl;
-            delete audioData;
+            delete m_audioData;
             return false;
         }
 
         // Copy codec parameters to the codec context
-        if (avcodec_parameters_to_context(audioData->codecContext, audioCodecParams) < 0) {
+        if (avcodec_parameters_to_context(m_audioData->codecContext, audioCodecParams) < 0) {
             std::cerr << "Could not copy audio codec parameters to context." << std::endl;
-            delete audioData;
+            delete m_audioData;
             return false;
         }
 
         // Set the packet timebase
-        audioData->codecContext->pkt_timebase = audioData->formatContext->streams[audioData->streamIndex]->time_base;
+        m_audioData->codecContext->pkt_timebase = m_audioData->formatContext->streams[m_audioData->streamIndex]->time_base;
 
         // Open the audio codec
-        if (avcodec_open2(audioData->codecContext, audioCodec, NULL) < 0) {
+        if (avcodec_open2(m_audioData->codecContext, audioCodec, NULL) < 0) {
             std::cerr << "Could not open audio codec." << std::endl;
-            delete audioData;
+            delete m_audioData;
             return false;
         }
 
         // Set up the SwrContext for audio resampling
-        audioData->swrContext = swr_alloc();
-        if (!audioData->swrContext) {
+        m_audioData->swrContext = swr_alloc();
+        if (!m_audioData->swrContext) {
             std::cerr << "Could not allocate SwrContext." << std::endl;
-            delete audioData;
+            delete m_audioData;
             return false;
         }
 
@@ -222,40 +222,40 @@ bool AssetsList::loadFile(const char* filename) {
         AVChannelLayout outChannelLayout = AV_CHANNEL_LAYOUT_STEREO;
         AVChannelLayout inChannelLayout;
         inChannelLayout.order = AV_CHANNEL_ORDER_NATIVE;
-        inChannelLayout.nb_channels = av_get_channel_layout_nb_channels(audioData->codecContext->channels);
+        inChannelLayout.nb_channels = av_get_channel_layout_nb_channels(m_audioData->codecContext->channels);
         if (inChannelLayout.nb_channels > 0) {
             inChannelLayout.u.mask = (1ULL << inChannelLayout.nb_channels) - 1; // Assuming all channels are used
         }
 
         if (swr_alloc_set_opts2(
-            &audioData->swrContext,
+            &m_audioData->swrContext,
             &outChannelLayout,              // Output channel layout
             AV_SAMPLE_FMT_S16,              // Output sample format (for SDL)
             44100,                          // Output sample rate
             &inChannelLayout,               // Input channel layout
-            (AVSampleFormat)audioData->codecContext->sample_fmt, // Input sample format (FFmpeg decoded format)
-            audioData->codecContext->sample_rate,                // Input sample rate
+            (AVSampleFormat)m_audioData->codecContext->sample_fmt, // Input sample format (FFmpeg decoded format)
+            m_audioData->codecContext->sample_rate,                // Input sample rate
             0,                              // No additional options
             nullptr                         // No logging context
         ) < 0) {
             std::cerr << "Failed to set options for SwrContext." << std::endl;
-            swr_free(&audioData->swrContext);
+            swr_free(&m_audioData->swrContext);
             return false;
         }
 
         // Initialize the SwrContext
-        if (swr_init(audioData->swrContext) < 0) {
+        if (swr_init(m_audioData->swrContext) < 0) {
             std::cerr << "Failed to initialize the SwrContext." << std::endl;
-            delete audioData;
+            delete m_audioData;
             return false;
         }
 
         // Allocate memory for audio frames
-        audioData->frame = av_frame_alloc();
+        m_audioData->frame = av_frame_alloc();
     }
     else {
-        delete audioData;
-        audioData = nullptr;
+        delete m_audioData;
+        m_audioData = nullptr;
     }
 
     return true; // Successfully loaded the video/audio file
@@ -267,25 +267,25 @@ AVFrame* AssetsList::getFrame(int frameIndex) {
     int currentFrame = 0;
 
     // Read packets from the media file. Each packet corresponds to a small chunk of data (e.g., a frame).
-    while (av_read_frame(videoData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoData->streamIndex) {
+    while (av_read_frame(m_videoData->formatContext, &packet) >= 0) {
+        if (packet.stream_index == m_videoData->streamIndex) {
             // Send the packet to the codec for decoding
-            avcodec_send_packet(videoData->codecContext, &packet);
+            avcodec_send_packet(m_videoData->codecContext, &packet);
 
             // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
+            int ret = avcodec_receive_frame(m_videoData->codecContext, m_videoData->frame);
             if (ret >= 0) {
                 if (currentFrame == frameIndex) {
                     // Convert the frame to RGB
-                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
+                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, m_videoData->codecContext->width, m_videoData->codecContext->height, 1);
                     uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
 
                     // Perform the conversion to RGB.
-                    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-                    sws_scale(videoData->swsContext, videoData->frame->data, videoData->frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
+                    av_image_fill_arrays(m_videoData->rgbFrame->data, m_videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, m_videoData->codecContext->width, m_videoData->codecContext->height, 1);
+                    sws_scale(m_videoData->swsContext, m_videoData->frame->data, m_videoData->frame->linesize, 0, m_videoData->codecContext->height, m_videoData->rgbFrame->data, m_videoData->rgbFrame->linesize);
 
                     av_packet_unref(&packet);
-                    return videoData->rgbFrame;  // Return the RGB frame
+                    return m_videoData->rgbFrame;  // Return the RGB frame
                 }
                 currentFrame++;
             }
@@ -377,7 +377,7 @@ SDL_Texture* AssetsList::getWindowsThumbnail(const wchar_t* wfilepath) {
                 }
 
                 // Create SDL_Texture from the bitmap data
-                texture = SDL_CreateTexture(renderer,
+                texture = SDL_CreateTexture(p_renderer,
                     SDL_PIXELFORMAT_ARGB8888,
                     SDL_TEXTUREACCESS_STREAMING,
                     bm.bmWidth,

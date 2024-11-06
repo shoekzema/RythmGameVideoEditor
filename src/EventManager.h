@@ -18,16 +18,15 @@ public:
 
     // Register an event listener
     void subscribe(EventType eventType, EventCallback callback) {
-        listeners[eventType].push_back(callback);
+        m_listeners[eventType].push_back(callback);
     }
 
     // Broadcast an event
     void emit(EventType eventType, VideoData* data) {
-        for (auto& listener : listeners[eventType]) {
+        for (auto& listener : m_listeners[eventType]) {
             listener(data);
         }
     }
-
 private:
-    std::map<EventType, std::vector<EventCallback>> listeners;
+    std::map<EventType, std::vector<EventCallback>> m_listeners;
 };

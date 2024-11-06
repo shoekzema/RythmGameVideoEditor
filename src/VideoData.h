@@ -10,14 +10,14 @@ extern "C" {
 
 // Structure holding all preprocessed ffmpeg data to be able to quickly process videos
 struct VideoData {
-    AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
-    AVCodecContext* codecContext; // Manages decoding of the video stream.
-    SwsContext* swsContext; // Used for converting the frame to the desired format (e.g., YUV to RGB).
-    AVFrame* frame; // Holds decoded video frame data.
-    AVFrame* rgbFrame; // Holds video frame data converted to RGB format for easier processing.
-    int streamIndex; // The index of the video stream.
+    AVFormatContext* formatContext = nullptr; // Manages the media container, holds info about streams, formats, etc.
+    AVCodecContext* codecContext = nullptr; // Manages decoding of the video stream.
+    SwsContext* swsContext = nullptr; // Used for converting the frame to the desired format (e.g., YUV to RGB).
+    AVFrame* frame = nullptr; // Holds decoded video frame data.
+    AVFrame* rgbFrame = nullptr; // Holds video frame data converted to RGB format for easier processing.
+    int streamIndex = -1; // The index of the video stream.
 
-    VideoData() : formatContext(nullptr), codecContext(nullptr), swsContext(nullptr), frame(nullptr), rgbFrame(nullptr), streamIndex(-1) {}
+    VideoData() {}
 
     // Cleanup video data when it's no longer used
     ~VideoData() {
@@ -57,13 +57,13 @@ struct VideoData {
 
 // Structure holding all preprocessed ffmpeg data to be able to quickly process videos
 struct AudioData {
-    AVFormatContext* formatContext; // Manages the media container, holds info about streams, formats, etc.
-    AVCodecContext* codecContext; // Manages decoding of the audio stream.
-    SwrContext* swrContext; // Used for resampling and converting audio to SDL format.
-    AVFrame* frame; // Holds decoded audio frame data.
-    int streamIndex; // The index of the audio stream.
+    AVFormatContext* formatContext = nullptr; // Manages the media container, holds info about streams, formats, etc.
+    AVCodecContext* codecContext = nullptr; // Manages decoding of the audio stream.
+    SwrContext* swrContext = nullptr; // Used for resampling and converting audio to SDL format.
+    AVFrame* frame = nullptr; // Holds decoded audio frame data.
+    int streamIndex = -1; // The index of the audio stream.
 
-    AudioData() : formatContext(nullptr), codecContext(nullptr), swrContext(nullptr), frame(nullptr), streamIndex(-1) {}
+    AudioData() {}
 
     // Cleanup audio data when it's no longer used
     ~AudioData() {

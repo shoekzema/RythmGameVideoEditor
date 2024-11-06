@@ -9,7 +9,6 @@ public:
 
     // Main Application loop
     void run();
-
 private:
     // Initialize SDL and create window/renderer
     bool init();
@@ -19,16 +18,13 @@ private:
 
     // Render the window and all active segments
     void render();
-
-    SDL_Window* window;
-    SDL_Renderer* renderer;
-    EventManager eventManager;
-    bool running;
-    int screenWidth, screenHeight;
-
-    Segment* rootSegment;
-
-    // Shared variables for dragging between segments
-    bool isDragging = false;
-    AssetData* draggedAsset = nullptr;
+private:
+    SDL_Window* m_window = nullptr;
+    SDL_Renderer* m_renderer = nullptr;
+    EventManager m_eventManager;
+    bool m_running = false;
+    int m_screenWidth, m_screenHeight;
+    Segment* m_rootSegment; // Root of the window segment hierarchy
+    bool m_isDragging = false;
+    AssetData* m_draggedAsset = nullptr; // Shared variables for dragging between segments
 };

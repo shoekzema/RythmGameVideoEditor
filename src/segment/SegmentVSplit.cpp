@@ -1,51 +1,51 @@
 #include "Segment.h"
 
 SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color), draggingDivider(false), resizing(false)
+    : Segment(x, y, w, h, renderer, eventManager, parent, color)
 {
-    divider = { x + w / 2 - dividerThickness / 2, y, dividerThickness, h };
-    leftSegment  = new AssetsList( x,                                y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
-    rightSegment = new VideoPlayer(x + w / 2 + dividerThickness / 2, y, w / 2 - dividerThickness / 2, h, renderer, eventManager, this);
+    m_divider = { x + w / 2 - m_dividerThickness / 2, y, m_dividerThickness, h };
+    m_leftSegment  = new AssetsList( x,                                  y, w / 2 - m_dividerThickness / 2, h, renderer, eventManager, this);
+    m_rightSegment = new VideoPlayer(x + w / 2 + m_dividerThickness / 2, y, w / 2 - m_dividerThickness / 2, h, renderer, eventManager, this);
 }
 
 SegmentVSplit::~SegmentVSplit() {
-    if (leftSegment) delete leftSegment;
-    if (rightSegment) delete rightSegment;
+    if (m_leftSegment) delete m_leftSegment;
+    if (m_rightSegment) delete m_rightSegment;
 }
 
 void SegmentVSplit::setLeftSegment(Segment* segment) {
-    SDL_Rect prevRect = leftSegment->rect;
-    leftSegment = segment;
-    leftSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
+    SDL_Rect prevRect = m_leftSegment->rect;
+    m_leftSegment = segment;
+    m_leftSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
 }
 void SegmentVSplit::setRightSegment(Segment* segment) {
-    SDL_Rect prevRect = rightSegment->rect;
-    rightSegment = segment;
-    rightSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
+    SDL_Rect prevRect = m_rightSegment->rect;
+    m_rightSegment = segment;
+    m_rightSegment->update(prevRect.x, prevRect.y, prevRect.w, prevRect.h);
 }
 
 void SegmentVSplit::render() {
-    leftSegment->render();
-    rightSegment->render();
+    m_leftSegment->render();
+    m_rightSegment->render();
 
-    SDL_SetRenderDrawColor(renderer, dividerColor.r, dividerColor.g, dividerColor.b, dividerColor.a);
-    SDL_RenderFillRect(renderer, &divider);
+    SDL_SetRenderDrawColor(p_renderer, m_dividerColor.r, m_dividerColor.g, m_dividerColor.b, m_dividerColor.a);
+    SDL_RenderFillRect(p_renderer, &m_divider);
 }
 
 void SegmentVSplit::update(int x, int y, int w, int h) {
     int widthDiff = rect.w - w;
-    int widthChange = widthDiff / (rect.w / (float)leftSegment->rect.w);
-    leftSegment ->update(x,                   y, leftSegment->rect.w - widthChange, h);
-    rightSegment->update(leftSegment->rect.w, y, w - leftSegment->rect.w,           h);
-    divider = { divider.x - widthChange, y, dividerThickness, h };
+    int widthChange = widthDiff / (rect.w / (float)m_leftSegment->rect.w);
+    m_leftSegment ->update(x,                   y, m_leftSegment->rect.w - widthChange, h);
+    m_rightSegment->update(m_leftSegment->rect.w, y, w - m_leftSegment->rect.w,           h);
+    m_divider = { m_divider.x - widthChange, y, m_dividerThickness, h };
     Segment::update(x, y, w, h);
 }
 
 void SegmentVSplit::handleEvent(SDL_Event& event) {
     if (event.type == SDL_MOUSEBUTTONDOWN) {
         SDL_Point mousePoint = { event.button.x, event.button.y };
-        if (SDL_PointInRect(&mousePoint, &divider)) {
-            draggingDivider = true;
+        if (SDL_PointInRect(&mousePoint, &m_divider)) {
+            m_draggingDivider = true;
         }
     }
     else if (event.type == SDL_MOUSEMOTION) {
@@ -53,14 +53,14 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
 
         // If not in this Segment, we ignore it 
         if (SDL_PointInRect(&mouseMotion, &rect)) {
-            if (draggingDivider) {
+            if (m_draggingDivider) {
                 // Resize the segments dynamically by dragging the divider
-                int newMiddle = std::max(dividerThickness/2, std::min(event.motion.x, appWindowSizeX - dividerThickness/2)) - rect.x - divider.w / 2;
-                divider.x = newMiddle;
-                leftSegment->update(leftSegment->rect.x, leftSegment->rect.y, newMiddle, leftSegment->rect.h);
-                rightSegment->update(newMiddle, rightSegment->rect.y, rect.w - newMiddle, rightSegment->rect.h);
+                int newMiddle = std::max(m_dividerThickness/2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness/2)) - rect.x - m_divider.w / 2;
+                m_divider.x = newMiddle;
+                m_leftSegment->update(m_leftSegment->rect.x, m_leftSegment->rect.y, newMiddle, m_leftSegment->rect.h);
+                m_rightSegment->update(newMiddle, m_rightSegment->rect.y, rect.w - newMiddle, m_rightSegment->rect.h);
             }
-            else if (SDL_PointInRect(&mouseMotion, &divider)) {
+            else if (SDL_PointInRect(&mouseMotion, &m_divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE));
             }
             else {
@@ -70,24 +70,24 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
     }
     else if (event.type == SDL_MOUSEBUTTONUP) {
         SDL_Point mousePoint = { event.button.x, event.button.y };
-        draggingDivider = false;
+        m_draggingDivider = false;
     }
 
-    leftSegment->handleEvent(event);
-    rightSegment->handleEvent(event);
+    m_leftSegment->handleEvent(event);
+    m_rightSegment->handleEvent(event);
 }
 
 Segment* SegmentVSplit::findTypeImpl(const std::type_info& type) {
     if (type == typeid(SegmentVSplit)) {
         return this;
     }
-    if (leftSegment) {
-        if (Segment* found = leftSegment->findTypeImpl(type)) {
+    if (m_leftSegment) {
+        if (Segment* found = m_leftSegment->findTypeImpl(type)) {
             return found;
         }
     }
-    if (rightSegment) {
-        if (Segment* found = rightSegment->findTypeImpl(type)) {
+    if (m_rightSegment) {
+        if (Segment* found = m_rightSegment->findTypeImpl(type)) {
             return found;
         }
     }

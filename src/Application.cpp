@@ -1,21 +1,19 @@
 #include "Application.h"
 
-Application::Application(int width, int height)
-    : window(nullptr), renderer(nullptr), running(false),
-    screenWidth(width), screenHeight(height) {
+Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {
     if (init()) {
-        SegmentHSplit* root = new SegmentHSplit(0, 0, screenWidth, screenHeight, renderer, &eventManager);
-            SegmentVSplit* top = new SegmentVSplit(0, 0, screenWidth, screenHeight, renderer, &eventManager, root);
+        SegmentHSplit* root = new SegmentHSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager);
+            SegmentVSplit* top = new SegmentVSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
             root->setTopSegment(top);
-                Segment* assetList   = new AssetsList(   0, 0, screenWidth, screenHeight, renderer, &eventManager, top);
-                Segment* videoPlayer = new VideoPlayer(0, 0, screenWidth, screenHeight, renderer, &eventManager, top);
+                Segment* assetList   = new AssetsList(   0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                Segment* videoPlayer = new VideoPlayer(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
                 top->setLeftSegment(assetList);
                 top->setRightSegment(videoPlayer);
-            Segment* timeLine = new Timeline(0, 0, screenWidth, screenHeight, renderer, &eventManager, root);
+            Segment* timeLine = new Timeline(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
             root->setBottomSegment(timeLine);
 
-        rootSegment = root;
-        running = true;
+        m_rootSegment = root;
+        m_running = true;
     }
 }
 
@@ -24,13 +22,13 @@ bool Application::init() {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         return false;
     }
-    window = SDL_CreateWindow("RythmGameVideoEditor", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screenWidth, screenHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-    if (!window) {
+    m_window = SDL_CreateWindow("RythmGameVideoEditor", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, m_screenWidth, m_screenHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    if (!m_window) {
         std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
         return false;
     }
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-    if (!renderer) {
+    m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    if (!m_renderer) {
         std::cerr << "Failed to create renderer: " << SDL_GetError() << std::endl;
         return false;
     }
@@ -38,9 +36,9 @@ bool Application::init() {
 }
 
 Application::~Application() {
-    if (rootSegment) delete rootSegment;
-    if (renderer) SDL_DestroyRenderer(renderer);
-    if (window) SDL_DestroyWindow(window);
+    if (m_rootSegment) delete m_rootSegment;
+    if (m_renderer) SDL_DestroyRenderer(m_renderer);
+    if (m_window) SDL_DestroyWindow(m_window);
     SDL_Quit();
 }
 
@@ -48,13 +46,13 @@ void Application::handleEvents() {
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) {
-        if (rootSegment) {
-            rootSegment->handleEvent(event);
+        if (m_rootSegment) {
+            m_rootSegment->handleEvent(event);
         }
 
         switch (event.type) {
         case SDL_QUIT:
-            running = false;
+            m_running = false;
             break;
 
         case SDL_WINDOWEVENT:
@@ -66,7 +64,7 @@ void Application::handleEvents() {
                 appWindowSizeY = newHeight;
 
                 // Handle the window resize
-                rootSegment->update(0, 0, newWidth, newHeight);
+                m_rootSegment->update(0, 0, newWidth, newHeight);
             }
             break;
 
@@ -75,29 +73,29 @@ void Application::handleEvents() {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
                 // Check if pressed inside an AssetList segment
-                AssetsList* assetList = rootSegment->findType<AssetsList>();
+                AssetsList* assetList = m_rootSegment->findType<AssetsList>();
                 if (SDL_PointInRect(&mouseButton, &assetList->rect)) {
-                    draggedAsset = assetList->getAssetFromAssetList(mouseButton.x, mouseButton.y);
-                    isDragging = true;
+                    m_draggedAsset = assetList->getAssetFromAssetList(mouseButton.x, mouseButton.y);
+                    m_isDragging = true;
                 }
             }
             break;
 
         case SDL_MOUSEBUTTONUP:
-            if (isDragging && draggedAsset) {
+            if (m_isDragging && m_draggedAsset) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
                 // Check if released inside a Timeline segment
-                Timeline* timeline = rootSegment->findType<Timeline>();
+                Timeline* timeline = m_rootSegment->findType<Timeline>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
-                    if (draggedAsset->videoData) timeline->addVideoSegment(draggedAsset->videoData);
-                    if (draggedAsset->audioData) timeline->addAudioSegment(draggedAsset->audioData);
+                    if (m_draggedAsset->videoData) timeline->addVideoSegment(m_draggedAsset->videoData);
+                    if (m_draggedAsset->audioData) timeline->addAudioSegment(m_draggedAsset->audioData);
                 }
 
                 // Reset the dragging state
-                isDragging = false;
-                draggedAsset = nullptr;
+                m_isDragging = false;
+                m_draggedAsset = nullptr;
             }
             break;
         }
@@ -105,22 +103,22 @@ void Application::handleEvents() {
 }
 
 void Application::render() {
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // red (easy to find problems)
-    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(m_renderer, 255, 0, 0, 255); // red (easy to find problems)
+    SDL_RenderClear(m_renderer);
 
     // Render segments
-    if (rootSegment) {
-        rootSegment->render();
+    if (m_rootSegment) {
+        m_rootSegment->render();
     }
 
-    SDL_RenderPresent(renderer);
+    SDL_RenderPresent(m_renderer);
 }
 
 void Application::run() {
     const int targetFrameTime = 1000 / 60;  // 16.67 ms per frame for 60 FPS
     Uint32 frameStart, frameEnd, frameDuration;
 
-    while (running) {
+    while (m_running) {
         // Record the time at the start of the frame
         frameStart = SDL_GetTicks();
 

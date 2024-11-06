@@ -1,15 +1,15 @@
 #include "Segment.h"
 
 Segment::Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : renderer(renderer), eventManager(eventManager), rect({ x, y, w, h }), parent(parent), color(color) { }
+    : p_renderer(renderer), p_eventManager(eventManager), rect({ x, y, w, h }), parent(parent), p_color(color) { }
 
 Segment::~Segment() {
     // No need to delete renderer since it is managed elsewhere
 }
 
 void Segment::render() {
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderFillRect(renderer, &rect);
+    SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
+    SDL_RenderFillRect(p_renderer, &rect);
 }
 
 void Segment::update(int x, int y, int w, int h) {

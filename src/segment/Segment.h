@@ -10,22 +10,16 @@
  */
 class Segment {
 public:
-    Segment* parent;
-
     Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
     virtual ~Segment();
 
     virtual void render();
     virtual void update(int x, int y, int w, int h);
-
     /**
      * @brief Handle user events.
      * @param event User interaction event code.
      */
     virtual void handleEvent(SDL_Event& event);
-
-    SDL_Rect rect;
-
     /**
      * @brief Find a segment with type T. (Best to call from the root segment)
      * @returns The first segment in the hierarchy with type T.
@@ -35,10 +29,13 @@ public:
 
     // The virtual implementation method for findType(). Should only be called from findType() or any overwritten findTypeImpl().
     virtual Segment* findTypeImpl(const std::type_info& type);
+public:
+    Segment* parent;
+    SDL_Rect rect;
 protected:
-    SDL_Renderer* renderer;
-    EventManager* eventManager;
-    SDL_Color color;
+    SDL_Renderer* p_renderer;
+    EventManager* p_eventManager;
+    SDL_Color p_color;
 };
 
 template<typename T>
@@ -55,31 +52,22 @@ public:
     SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentHSplit();
 
-    void setTopSegment(Segment* segment);
-    void setBottomSegment(Segment* segment);
-
     void render() override;
     void update(int x, int y, int w, int h) override;
-
-    /**
-     * @brief Handle user events, like dragging the divider.
-     * @param event User interaction event code.
-     */
     void handleEvent(SDL_Event& event) override;
-
     Segment* findTypeImpl(const std::type_info& type) override;
+
+    void setTopSegment(Segment* segment);
+    void setBottomSegment(Segment* segment);
 private:
-    // Divider between segments
-    SDL_Rect divider;
-    SDL_Color dividerColor = { 255, 255, 255, 255 }; // white
-    bool draggingDivider;
+    SDL_Rect m_divider;
+    SDL_Color m_dividerColor = { 255, 255, 255, 255 }; // white
+    bool m_draggingDivider = false;
+    bool m_resizing = false; // For resize handles
+    int m_dividerThickness = 8;
 
-    // For resize handles
-    bool resizing;
-    int dividerThickness = 8;
-
-    Segment* topSegment;
-    Segment* bottomSegment;
+    Segment* m_topSegment;
+    Segment* m_bottomSegment;
 };
 
 /**
@@ -91,31 +79,22 @@ public:
     SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 255, 0, 255 });
     ~SegmentVSplit();
 
-    void setLeftSegment(Segment* segment);
-    void setRightSegment(Segment* segment);
-
     void render() override;
     void update(int x, int y, int w, int h) override;
-
-    /**
-     * @brief Handle user events, like dragging the divider.
-     * @param event User interaction event code.
-     */
     void handleEvent(SDL_Event& event) override;
-
     Segment* findTypeImpl(const std::type_info& type) override;
+
+    void setLeftSegment(Segment* segment);
+    void setRightSegment(Segment* segment);
 private:
-    // Divider between segments
-    SDL_Rect divider;
-    SDL_Color dividerColor = { 255, 255, 255, 255 }; // white
-    bool draggingDivider;
+    SDL_Rect m_divider;
+    SDL_Color m_dividerColor = { 255, 255, 255, 255 }; // white
+    bool m_draggingDivider = false;
+    bool m_resizing = false; // For resize handles
+    int m_dividerThickness = 8;
 
-    // For resize handles
-    bool resizing;
-    int dividerThickness = 8;
-
-    Segment* leftSegment;
-    Segment* rightSegment;
+    Segment* m_leftSegment;
+    Segment* m_rightSegment;
 };
 
 /**
@@ -129,25 +108,15 @@ public:
 
     void render() override;
     void update(int x, int y, int w, int h) override;
-
-    /**
-     * @brief Handle user events, like mouse clicks and drag-and-drop.
-     * @param event User interaction event code.
-     */
     void handleEvent(SDL_Event& event) override;
+    Segment* findTypeImpl(const std::type_info& type) override;
 
     /**
      * @brief Retrieve the asset data corresponding to the mouse position
      * @return AssetData with VideoData and/or AudioData
      */
     AssetData* getAssetFromAssetList(int mouseX, int mouseY);
-
-    Segment* findTypeImpl(const std::type_info& type) override;
 private:
-    SDL_Texture* videoFrameTexture; // The texture to render
-    VideoData* videoData; // Holds all VideoData that ffmpeg needs for processing video
-    AudioData* audioData; // Holds all AudioData that ffmpeg needs for processing audio
-
     /**
      * @brief Opens the video file, finds the stream with video data and set up the codec context to decode video.
      * @param filepath The path to the video or audio file.
@@ -177,6 +146,10 @@ private:
      */
     SDL_Texture* getWindowsThumbnail(const wchar_t* wfilepath);
 #endif // _WIN32
+private:
+    SDL_Texture* m_videoFrameTexture = nullptr; // The texture to render
+    VideoData* m_videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
+    AudioData* m_audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
 };
 
 // Segment in the timeline with a pointer to the corresponding video data and data on what of that video is to be played.
@@ -201,19 +174,13 @@ struct AudioSegment {
  */
 class Timeline : public Segment {
 public:
-    bool playing;
-
     Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
     ~Timeline();
 
     void render() override;
     void update(int x, int y, int w, int h) override;
-
-    /**
-     * @brief Handle user events, like mouse clicks, drag-and-drop, etc.
-     * @param event User interaction event code.
-     */
     void handleEvent(SDL_Event& event) override;
+    Segment* findTypeImpl(const std::type_info& type) override;
 
     // Get the video segment that should currently be playing
     VideoSegment* getCurrentVideoSegment();
@@ -232,14 +199,14 @@ public:
 
     // Add an audio segment to the timeline audio track
     void addAudioSegment(AudioData* data);
-
-    Segment* findTypeImpl(const std::type_info& type) override;
+public:
+    bool playing = false;
 private:
-    std::vector<VideoSegment> videoSegments; // List of all VideoSegments on the video track
-    std::vector<AudioSegment> audioSegments; // List of all AudioSegments on the audio track
-    double currentTime;   // The current time (and position) of the timeline (in seconds)
-    double startPlayTime; // The time in the timeline where playing starts from (in seconds)
-    Uint32 startTime = 0; // Absolute start time of playback (in milliseconds)
+    std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments on the video track
+    std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments on the audio track
+    double m_currentTime = 0.0;   // The current time (and position) of the timeline (in seconds)
+    double m_startPlayTime = 0.0; // The time in the timeline where playing starts from (in seconds)
+    Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
 };
 
 /**
@@ -253,28 +220,9 @@ public:
 
     void render() override;
     void update(int x, int y, int w, int h) override;
-
-    /**
-     * @brief Handle user events, like mouse clicks.
-     * @param event User interaction event code.
-     */
     void handleEvent(SDL_Event& event) override;
-
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
-    SDL_Texture* videoTexture; // Texture for the video frame
-    VideoData* videoData; // Holds pointers to all VideoData for ffmpeg to be able to read frames
-    Timeline* timeline; // Pointer towards the timeline segment
-
-    SDL_AudioDeviceID audioDevice;
-    SDL_AudioSpec audioSpec;
-    uint8_t* audioBuffer;
-    int audioBufferSize;
-
-    VideoSegment* lastVideoSegment = nullptr;
-    AudioSegment* lastAudioSegment = nullptr;
-    double frameDropThreshold = 1.0 / 60.0; // 60 fps
-
     // Render video and audio based on the segments in the timeline at the current timeline time.
     void playTimeline(Timeline* timeline);
 
@@ -283,4 +231,17 @@ private:
 
     // Play the current audio frame from an audioSegment.
     void playAudioSegment(AudioSegment* audioSegment);
+private:
+    SDL_Texture* m_videoTexture = nullptr; // Texture for the video frame
+    VideoData* m_videoData = nullptr; // Holds pointers to all VideoData for ffmpeg to be able to read frames
+    Timeline* m_timeline = nullptr; // Pointer towards the timeline segment
+
+    SDL_AudioDeviceID m_audioDevice;
+    SDL_AudioSpec m_audioSpec;
+    uint8_t* m_audioBuffer;
+    int m_audioBufferSize;
+
+    VideoSegment* m_lastVideoSegment = nullptr;
+    AudioSegment* m_lastAudioSegment = nullptr;
+    double m_frameDropThreshold = 1.0 / 60.0; // 60 fps
 };
