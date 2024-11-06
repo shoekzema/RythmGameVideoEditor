@@ -4,8 +4,8 @@ SegmentVSplit::SegmentVSplit(int x, int y, int w, int h, SDL_Renderer* renderer,
     : Segment(x, y, w, h, renderer, eventManager, parent, color)
 {
     m_divider = { x + w / 2 - m_dividerThickness / 2, y, m_dividerThickness, h };
-    m_leftSegment  = new AssetsList( x,                                  y, w / 2 - m_dividerThickness / 2, h, renderer, eventManager, this);
-    m_rightSegment = new VideoPlayer(x + w / 2 + m_dividerThickness / 2, y, w / 2 - m_dividerThickness / 2, h, renderer, eventManager, this);
+    m_leftSegment  = new Segment(x,                                  y, w / 2 - m_dividerThickness / 2, h, renderer, eventManager, this);
+    m_rightSegment = new Segment(x + w / 2 + m_dividerThickness / 2, y, w / 2 - m_dividerThickness / 2, h, renderer, eventManager, this);
 }
 
 SegmentVSplit::~SegmentVSplit() {
