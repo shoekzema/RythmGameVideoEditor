@@ -1,4 +1,6 @@
-#include "Segment.h"
+#include <iostream>
+#include "AssetsList.h"
+#include "util.h"
 
 AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color) { }

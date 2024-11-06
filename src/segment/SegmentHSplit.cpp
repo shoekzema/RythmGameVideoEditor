@@ -1,4 +1,6 @@
-#include "Segment.h"
+#include <iostream>
+#include "SegmentHSplit.h"
+#include "util.h"
 
 SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color)

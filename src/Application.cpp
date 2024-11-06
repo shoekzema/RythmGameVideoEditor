@@ -1,4 +1,7 @@
+#include <iostream>
 #include "Application.h"
+#include "util.h"
+#include "segment/SegmentIncludes.h"
 
 Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {
     if (init()) {
