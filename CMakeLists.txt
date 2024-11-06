@@ -42,12 +42,12 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET RythmGameVideoEditor PROPERTY CXX_STANDARD 20)
 endif()
 
-set(SDL2_ROOT "C:/SDL2-2.26.3")
+set(SDL2_ROOT "${CMAKE_SOURCE_DIR}/libs/SDL2")
 set(SDL2_INCLUDE_DIRS "${SDL2_ROOT}/include")
 set(SDL2_LIBRARIES "${SDL2_ROOT}/lib/x64/")
 
 # Locate FFmpeg
-set(FFMPEG_ROOT "C:/ffmpeg/ffmpeg_x64-windows")
+set(FFMPEG_ROOT "${CMAKE_SOURCE_DIR}/libs/ffmpeg")
 set(FFMPEG_INCLUDE_DIRS "${FFMPEG_ROOT}/include")
 set(FFMPEG_LIBRARIES "${FFMPEG_ROOT}/lib")
 
