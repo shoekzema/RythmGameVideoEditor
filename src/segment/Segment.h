@@ -188,6 +188,9 @@ public:
     // Get the audio segment that should currently be playing
     AudioSegment* getCurrentAudioSegment();
 
+    // Returns if the timeline is playing
+    bool isPlaying();
+
     // Get the current time in the timeline (in seconds)
     double getCurrentTime();
 
@@ -199,9 +202,8 @@ public:
 
     // Add an audio segment to the timeline audio track
     void addAudioSegment(AudioData* data);
-public:
-    bool playing = false;
 private:
+    bool m_playing = false;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments on the video track
     std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments on the audio track
     double m_currentTime = 0.0;   // The current time (and position) of the timeline (in seconds)

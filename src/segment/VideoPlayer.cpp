@@ -32,7 +32,7 @@ VideoPlayer::~VideoPlayer() {
 
 void VideoPlayer::render() {
     if (m_timeline) {
-        if (m_timeline->playing) {
+        if (m_timeline->isPlaying()) {
             playTimeline(m_timeline);
         }
         else {

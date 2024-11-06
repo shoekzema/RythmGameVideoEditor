@@ -44,12 +44,12 @@ void Timeline::handleEvent(SDL_Event& event) {
     case SDL_KEYDOWN:
         // Check if the key pressed was the spacebar
         if (event.key.keysym.sym == SDLK_SPACE) {
-            if (playing) {
-                playing = false;
+            if (m_playing) {
+                m_playing = false;
                 m_currentTime = m_startPlayTime;
             }
             else {
-                playing = true;
+                m_playing = true;
                 m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000);
             }
         }
@@ -84,8 +84,12 @@ AudioSegment* Timeline::getCurrentAudioSegment() {
     return nullptr;  // No segment found at the current time
 }
 
+bool Timeline::isPlaying() {
+    return m_playing;
+}
+
 double Timeline::getCurrentTime() {
-    if (playing) {
+    if (m_playing) {
         // If playing, calculate the current time based on how long it's been playing
         Uint32 now = SDL_GetTicks();
         m_currentTime = (now - m_startTime) / 1000.0; // Update time in seconds
