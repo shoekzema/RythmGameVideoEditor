@@ -58,6 +58,7 @@ include_directories(${SDL2_INCLUDE_DIRS}
 # Link FFmpeg libraries (lib files)
 target_link_libraries(RythmGameVideoEditor
     ${SDL2_LIBRARIES}/SDL2.lib
+    ${SDL2_LIBRARIES}/SDL2_ttf.lib
     ${SDL2_LIBRARIES}/SDL2main.lib
     ${FFMPEG_LIBRARIES}/avcodec.lib
     ${FFMPEG_LIBRARIES}/avformat.lib
@@ -73,6 +74,7 @@ set(FFMPEG_BIN_DIR "${FFMPEG_ROOT}/bin")
 add_custom_command(TARGET RythmGameVideoEditor POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${SDL2_LIBRARIES}/SDL2.dll"
+    "${SDL2_LIBRARIES}/SDL2_ttf.dll"
     "${FFMPEG_BIN_DIR}/avformat-60.dll"
     "${FFMPEG_BIN_DIR}/avcodec-60.dll"
     "${FFMPEG_BIN_DIR}/avutil-58.dll"

@@ -35,6 +35,16 @@ bool Application::init() {
         std::cerr << "Failed to create renderer: " << SDL_GetError() << std::endl;
         return false;
     }
+
+    TTF_Init();
+
+    // Load a font
+    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 13);
+    if (!m_font) {
+        printf("Failed to load font: %s\n", TTF_GetError());
+        return -1;
+    }
+    setFont(m_font);
     return true;
 }
 
@@ -42,6 +52,8 @@ Application::~Application() {
     if (m_rootSegment) delete m_rootSegment;
     if (m_renderer) SDL_DestroyRenderer(m_renderer);
     if (m_window) SDL_DestroyWindow(m_window);
+    if (m_font) TTF_CloseFont(m_font);
+    TTF_Quit();
     SDL_Quit();
 }
 

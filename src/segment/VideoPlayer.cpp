@@ -32,6 +32,9 @@ VideoPlayer::~VideoPlayer() {
 }
 
 void VideoPlayer::render() {
+    SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
+    SDL_RenderFillRect(p_renderer, &rect); // Draw background
+
     if (m_timeline) {
         if (m_timeline->isPlaying()) {
             playTimeline(m_timeline);

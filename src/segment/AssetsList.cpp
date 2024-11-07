@@ -1,21 +1,62 @@
 #include <iostream>
+#include <filesystem>
 #include "AssetsList.h"
 #include "util.h"
 
 AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color) { }
-
-AssetsList::~AssetsList() {
-    if (m_videoFrameTexture) SDL_DestroyTexture(m_videoFrameTexture);
+    : Segment(x, y, w, h, renderer, eventManager, parent, color) 
+{
+    m_altColor = {
+        static_cast<Uint8>(std::min(color.r + 8, 255)),
+        static_cast<Uint8>(std::min(color.g + 8, 255)),
+        static_cast<Uint8>(std::min(color.b + 9, 255)),
+        color.a
+    };
 }
 
+AssetsList::~AssetsList() {}
+
 void AssetsList::render() {
-    if (m_videoFrameTexture) {
-        SDL_RenderCopy(p_renderer, m_videoFrameTexture, NULL, &rect);
-    }
-    else {
-        SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
-        SDL_RenderFillRect(p_renderer, &rect); // Draw background
+    SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
+    SDL_RenderFillRect(p_renderer, &rect); // Draw background
+
+    SDL_Rect thumbnailRect = {10, 8, 96, 54}; // w:h ratio = 16:9
+    for (int i = 0; i < m_assets.size(); i++) {
+        // Use alternative background color rect for every second asset
+        if (i % 2 == 1) {
+            SDL_Rect altBG = { 0, thumbnailRect.y - 1, rect.w, thumbnailRect.h + 1 };
+            SDL_SetRenderDrawColor(p_renderer, m_altColor.r, m_altColor.g, m_altColor.b, m_altColor.a);
+            SDL_RenderFillRect(p_renderer, &altBG); // Draw background
+        }
+
+        SDL_RenderCopy(p_renderer, m_assets[i].videoFrameTexture, nullptr, &thumbnailRect);
+
+        SDL_Color textColor = { 255, 255, 255, 255 };
+        SDL_Surface* textSurface = TTF_RenderText_Solid(getFont(), m_assets[i].assetName.c_str(), textColor);
+        if (!textSurface) {
+            printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
+        }
+        else {
+            // Convert surface to texture
+            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(p_renderer, textSurface);
+            SDL_FreeSurface(textSurface); // Free the surface now that we have a texture
+
+            if (!textTexture) {
+                printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
+            }        
+            
+            // Define the destination rectangle for the text
+            SDL_Rect textRect;
+            textRect.x = thumbnailRect.x + thumbnailRect.w + 6; // X position
+            textRect.y = thumbnailRect.y + 4; // Y position
+            SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h); // Get width and height from the texture
+
+            SDL_RenderCopy(p_renderer, textTexture, NULL, &textRect); // Render text
+
+            SDL_DestroyTexture(textTexture);
+        }
+
+        thumbnailRect.y += 2 + thumbnailRect.h;
     }
 }
 
@@ -39,7 +80,6 @@ void AssetsList::handleEvent(SDL_Event& event) {
     case SDL_DROPFILE: {
         const char* droppedFile = event.drop.file;
         loadFile(droppedFile);
-        m_videoFrameTexture = getFrameTexture(droppedFile);
         SDL_free(event.drop.file);
         break;
     }
@@ -70,19 +110,19 @@ void AssetsList::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
-bool AssetsList::loadFile(const char* filename) {
+bool AssetsList::loadFile(const char* filepath) {
     Asset newAsset;
 
     // Open the file and reads its header, populating formatContext.
     newAsset.videoData->formatContext = avformat_alloc_context();
-    if (avformat_open_input(&newAsset.videoData->formatContext, filename, nullptr, nullptr) != 0) {
-        std::cerr << "Could not open input file: " << filename << std::endl;
+    if (avformat_open_input(&newAsset.videoData->formatContext, filepath, nullptr, nullptr) != 0) {
+        std::cerr << "Could not open input file: " << filepath << std::endl;
         delete newAsset.videoData;
         return false;
     }
     newAsset.audioData->formatContext = avformat_alloc_context();
-    if (avformat_open_input(&newAsset.audioData->formatContext, filename, nullptr, nullptr) != 0) {
-        std::cerr << "Could not open input file: " << filename << std::endl;
+    if (avformat_open_input(&newAsset.audioData->formatContext, filepath, nullptr, nullptr) != 0) {
+        std::cerr << "Could not open input file: " << filepath << std::endl;
         delete newAsset.audioData;
         return false;
     }
@@ -268,6 +308,12 @@ bool AssetsList::loadFile(const char* filename) {
         newAsset.audioData = nullptr;
     }
 
+    // Set a video/audio thumbnail texture
+    newAsset.videoFrameTexture = getFrameTexture(newAsset.videoData);
+
+    // Set the asset name
+    newAsset.assetName = std::filesystem::path(filepath).filename().string();
+
     m_assets.push_back(newAsset);
     return true; // Successfully loaded the video/audio file
 }
@@ -307,19 +353,16 @@ AVFrame* AssetsList::getFrame(VideoData* videoData, int frameIndex) {
     return nullptr;  // Frame not found
 }
 
-SDL_Texture* AssetsList::getFrameTexture(const char* filepath) {
+SDL_Texture* AssetsList::getFrameTexture(VideoData* videoData) {
 #ifdef _WIN32
-    // If on a windows machine, get the same thumbnail as windows shows
-    std::wstring wideFilePath = to_wstring(filepath);
-    return getWindowsThumbnail(wideFilePath.c_str());
-#else
-    // If not on a windows machine, get the first video frame and use it as a thumbnail
-    VideoData* videoData = nullptr;
-    for (Asset& asset : m_assets) {
-        if (strcmp(asset.videoData->formatContext->url, filepath) == 0) videoData = asset.videoData;
+    // If on a windows machine and m_useWindowsThumbnail is true, get the same thumbnail as windows shows
+    if (m_useWindowsThumbnail) {
+        std::wstring wideFilePath = to_wstring(videoData->formatContext->url);
+        return getWindowsThumbnail(wideFilePath.c_str());
     }
-
-    AVFrame* frame = getFrame(videoData, 0);  // Get the first frame
+#endif // _WIN32
+    // Get the first video frame and use it as a thumbnail
+    AVFrame* frame = getFrame(videoData, 0); // Get the first frame
     if (!frame) {
         return nullptr;
     }
@@ -343,7 +386,6 @@ SDL_Texture* AssetsList::getFrameTexture(const char* filepath) {
 
     SDL_UnlockTexture(texture);
     return texture;
-#endif // _WIN32
 }
 
 

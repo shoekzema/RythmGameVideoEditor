@@ -1,10 +1,13 @@
 #pragma once
 #include <SDL.h>
+#include <iostream>
 #include "Segment.h"
 #include "EventManager.h"
 #include "VideoData.h"
 
 struct Asset {
+    std::string assetName = "";
+    SDL_Texture* videoFrameTexture = nullptr;
     VideoData* videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
     AudioData* audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
 };
@@ -15,7 +18,7 @@ struct Asset {
  */
 class AssetsList : public Segment {
 public:
-    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
+    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
     ~AssetsList();
 
     void render() override;
@@ -48,7 +51,7 @@ private:
      * @param filepath The path to the video file.
      * @return The texture with the video's thumbnail.
      */
-    SDL_Texture* getFrameTexture(const char* filepath);
+    SDL_Texture* getFrameTexture(VideoData* videoData);
 
 #ifdef _WIN32
     /**
@@ -59,6 +62,7 @@ private:
     SDL_Texture* getWindowsThumbnail(const wchar_t* wfilepath);
 #endif // _WIN32
 private:
-    SDL_Texture* m_videoFrameTexture = nullptr; // The texture to render
     std::vector<Asset> m_assets; // List of all video/audio assets
+    SDL_Color m_altColor; // Alternative color for alterating assets BG
+    bool m_useWindowsThumbnail = false;
 };
