@@ -4,6 +4,11 @@
 #include "EventManager.h"
 #include "VideoData.h"
 
+struct Asset {
+    VideoData* videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
+    AudioData* audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
+};
+
 /**
  * @class AssetsList
  * @brief Window segment containing the list of assets loaded in the current project.
@@ -36,7 +41,7 @@ private:
      * @param frameIndex The index of the video frame to return.
      * @return The chosen video frame.
      */
-    AVFrame* getFrame(int frameIndex);
+    AVFrame* getFrame(VideoData* videoData, int frameIndex);
 
     /**
      * @brief Return a texture for a video thumbail.
@@ -55,6 +60,5 @@ private:
 #endif // _WIN32
 private:
     SDL_Texture* m_videoFrameTexture = nullptr; // The texture to render
-    VideoData* m_videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
-    AudioData* m_audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
+    std::vector<Asset> m_assets; // List of all video/audio assets
 };
