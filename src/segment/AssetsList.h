@@ -7,7 +7,7 @@
 
 struct Asset {
     std::string assetName = "";
-    SDL_Texture* videoFrameTexture = nullptr;
+    SDL_Texture* assetFrameTexture = nullptr; // The Video frame (or Audio album cover) to show as an image
     VideoData* videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
     AudioData* audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
 };
@@ -41,6 +41,7 @@ private:
 
     /**
      * @brief Get a specific frame from a video.
+     * @param videoData The videoData needed to get the frame.
      * @param frameIndex The index of the video frame to return.
      * @return The chosen video frame.
      */
@@ -48,7 +49,7 @@ private:
 
     /**
      * @brief Return a texture for a video thumbail.
-     * @param filepath The path to the video file.
+     * @param videoData The videoData needed to get the frame to create a texture for.
      * @return The texture with the video's thumbnail.
      */
     SDL_Texture* getFrameTexture(VideoData* videoData);
@@ -64,15 +65,15 @@ private:
 private:
     std::vector<Asset> m_assets; // List of all video/audio assets
     SDL_Color m_altColor; // Alternative color for alterating assets BG
-    bool m_useWindowsThumbnail = false;
+    bool m_useWindowsThumbnail = false; // Whether or not to use the same frame as windows for the video image (if on windows)
     int m_scrollOffset = 0;
     int m_scrollSpeed = 20;
 
-    int m_assetXPos = 10;
-    int m_assetStartYPos = 8;
+    int m_assetXPos = 10; // Whitespace amount left of an asset image
+    int m_assetStartYPos = 8; // y-pos where the first asset starts
     int m_assetImageWidth = 96; // w:h ratio = 16:9
     int m_assetImageHeight = 54;
-    int m_assetHeight = m_assetImageHeight + 2;
+    int m_assetHeight = m_assetImageHeight + 2; // An additional two pixels between images
     int m_scrollBarWidth = 6;
     int m_scrollBarXPos = 6; // x-pos from the right of the segment
     SDL_Color m_scrollBarBGColor = { 27, 30, 32, 255 };

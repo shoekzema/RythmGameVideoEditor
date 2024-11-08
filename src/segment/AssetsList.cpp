@@ -29,7 +29,7 @@ void AssetsList::render() {
             SDL_RenderFillRect(p_renderer, &altBG); // Draw background
         }
 
-        SDL_RenderCopy(p_renderer, m_assets[i].videoFrameTexture, nullptr, &thumbnailRect);
+        SDL_RenderCopy(p_renderer, m_assets[i].assetFrameTexture, nullptr, &thumbnailRect);
 
         SDL_Color textColor = { 255, 255, 255, 255 };
         SDL_Surface* textSurface = TTF_RenderText_Solid(getFont(), m_assets[i].assetName.c_str(), textColor);
@@ -49,9 +49,9 @@ void AssetsList::render() {
             SDL_Rect textRect;
             textRect.x = thumbnailRect.x + thumbnailRect.w + 6; // X position
             textRect.y = thumbnailRect.y + 4; // Y position
-            SDL_QueryTexture(textTexture, NULL, NULL, &textRect.w, &textRect.h); // Get width and height from the texture
+            SDL_QueryTexture(textTexture, nullptr, nullptr, &textRect.w, &textRect.h); // Get width and height from the texture
 
-            SDL_RenderCopy(p_renderer, textTexture, NULL, &textRect); // Render text
+            SDL_RenderCopy(p_renderer, textTexture, nullptr, &textRect); // Render text
 
             SDL_DestroyTexture(textTexture);
         }
@@ -82,20 +82,19 @@ void AssetsList::render() {
     }
 }
 
+void AssetsList::update(int x, int y, int w, int h) {
+    rect = { x, y, w, h };
+
+    // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the segment size, it will scroll up if possible)
+    int assetListLength;
+    assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+    if (assetListLength > rect.h) {
+        if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
+    }
+}
+
 void AssetsList::handleEvent(SDL_Event& event) {
     switch (event.type) {
-    case SDL_MOUSEBUTTONDOWN:
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            SDL_Point mouseButton = { event.button.x, event.button.y };
-
-            // If not in this Segment, we ignore it 
-            if (SDL_PointInRect(&mouseButton, &rect)) {
-                // Broadcast the VideoData object to other segments
-                //eventManager->emit(EventType::VideoSelected, videoData);
-            }
-        }
-        break;
-
     case SDL_MOUSEWHEEL:
         // Check if scrolling neccesary
         int assetListLength;
@@ -119,18 +118,6 @@ void AssetsList::handleEvent(SDL_Event& event) {
     }
 }
 
-AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
-    // If no assets loaded in, return null
-    if (m_assets.empty()) return nullptr;
-
-    for (int i = 0; i < m_assets.size(); i++) {
-        if (mouseY + m_scrollOffset > m_assetStartYPos + i * m_assetHeight && mouseY + m_scrollOffset < m_assetStartYPos + (i+1) * m_assetHeight) {
-            return new AssetData(m_assets[i].videoData, m_assets[i].audioData);
-        }
-    }
-    return nullptr;
-}
-
 Segment* AssetsList::findTypeImpl(const std::type_info& type) {
     if (type == typeid(AssetsList)) {
         return this;
@@ -138,15 +125,17 @@ Segment* AssetsList::findTypeImpl(const std::type_info& type) {
     return nullptr;
 }
 
-void AssetsList::update(int x, int y, int w, int h) {
-    rect = { x, y, w, h };
+AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
+    // If no assets loaded in, return null
+    if (m_assets.empty()) return nullptr;
 
-    // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the segment size, it will scroll up if possible)
-    int assetListLength;
-    assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
-    if (assetListLength > rect.h) {
-        if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
+    // Otherwise, loop through all assets
+    for (int i = 0; i < m_assets.size(); i++) {
+        if (mouseY + m_scrollOffset > m_assetStartYPos + i * m_assetHeight && mouseY + m_scrollOffset < m_assetStartYPos + (i+1) * m_assetHeight) {
+            return new AssetData(m_assets[i].videoData, m_assets[i].audioData); // If clicked inside the y-range of the this asset, return it
+        }
     }
+    return nullptr;
 }
 
 bool AssetsList::loadFile(const char* filepath) {
@@ -258,7 +247,7 @@ bool AssetsList::loadFile(const char* filepath) {
         newAsset.videoData->swsContext = sws_getContext(newAsset.videoData->codecContext->width, newAsset.videoData->codecContext->height, 
             newAsset.videoData->codecContext->pix_fmt,
             newAsset.videoData->codecContext->width, newAsset.videoData->codecContext->height, 
-            AV_PIX_FMT_RGB24, SWS_BILINEAR, NULL, NULL, NULL);
+            AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
     }
     else {
         delete newAsset.videoData;
@@ -350,7 +339,7 @@ bool AssetsList::loadFile(const char* filepath) {
     }
 
     // Set a video/audio thumbnail texture
-    newAsset.videoFrameTexture = getFrameTexture(newAsset.videoData);
+    newAsset.assetFrameTexture = getFrameTexture(newAsset.videoData);
 
     // Now that we used the video stream, throw it all away, cause we won't ever use it again
     if (fakeVideoStream) {
@@ -454,7 +443,7 @@ SDL_Texture* AssetsList::getWindowsThumbnail(const wchar_t* wfilepath) {
     }
 
     // Create a ShellItem from the video file path
-    hr = SHCreateItemFromParsingName(wfilepath, NULL, IID_PPV_ARGS(&imageFactory));
+    hr = SHCreateItemFromParsingName(wfilepath, nullptr, IID_PPV_ARGS(&imageFactory));
     if (SUCCEEDED(hr) && imageFactory != nullptr) {
         // Request the thumbnail (let's say 256x256 for a medium-sized thumbnail)
         SIZE size = { 256, 256 };
@@ -496,7 +485,7 @@ SDL_Texture* AssetsList::getWindowsThumbnail(const wchar_t* wfilepath) {
                 // Lock the texture for pixel access
                 void* pixels;
                 int pitch;
-                if (SDL_LockTexture(texture, NULL, &pixels, &pitch) != 0) {
+                if (SDL_LockTexture(texture, nullptr, &pixels, &pitch) != 0) {
                     std::cerr << "Failed to lock texture: " << SDL_GetError() << std::endl;
                     SDL_DestroyTexture(texture);
                     return nullptr;
