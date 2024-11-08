@@ -120,12 +120,11 @@ void AssetsList::handleEvent(SDL_Event& event) {
 }
 
 AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
-    // Retrieve the asset corresponding to the mouse position
-    // TODO: (You will have a list or array of assets in the AssetList class)
+    // If no assets loaded in, return null
     if (m_assets.empty()) return nullptr;
 
     for (int i = 0; i < m_assets.size(); i++) {
-        if (true) {
+        if (mouseY + m_scrollOffset > m_assetStartYPos + i * m_assetHeight && mouseY + m_scrollOffset < m_assetStartYPos + (i+1) * m_assetHeight) {
             return new AssetData(m_assets[i].videoData, m_assets[i].audioData);
         }
     }
@@ -183,6 +182,8 @@ bool AssetsList::loadFile(const char* filepath) {
     newAsset.videoData->streamIndex = -1;
     newAsset.audioData->streamIndex = -1;
 
+    bool fakeVideoStream = false; // If the video Stream is a single frame (e.g. album covers), use it to get the texture and then make videoData null
+
     // Find the first video and audio streams
     for (unsigned int i = 0; i < newAsset.videoData->formatContext->nb_streams; i++) {
         AVMediaType codecType = newAsset.videoData->formatContext->streams[i]->codecpar->codec_type;
@@ -190,8 +191,8 @@ bool AssetsList::loadFile(const char* filepath) {
             // Check for album art characteristics
             AVStream* stream = newAsset.videoData->formatContext->streams[i];
             if (stream->nb_frames <= 1 || stream->r_frame_rate.num < 2) {
-                // This is likely album art; ignore it as a video stream
-                continue;
+                // This is likely album art
+                fakeVideoStream = true;
             }
             newAsset.videoData->streamIndex = i;
         }
@@ -350,6 +351,12 @@ bool AssetsList::loadFile(const char* filepath) {
 
     // Set a video/audio thumbnail texture
     newAsset.videoFrameTexture = getFrameTexture(newAsset.videoData);
+
+    // Now that we used the video stream, throw it all away, cause we won't ever use it again
+    if (fakeVideoStream) {
+        delete newAsset.videoData;
+        newAsset.videoData = nullptr;
+    }
 
     // Set the asset name
     newAsset.assetName = std::filesystem::path(filepath).filename().string();
