@@ -25,7 +25,7 @@ struct AudioSegment {
  */
 class Timeline : public Segment {
 public:
-    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
+    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 42, 46, 50, 255 });
     ~Timeline();
 
     void render() override;

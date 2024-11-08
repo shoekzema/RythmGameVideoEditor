@@ -1,8 +1,16 @@
 #pragma once
 #include <SDL.h>
+#include <iostream>
 #include "Segment.h"
 #include "EventManager.h"
 #include "VideoData.h"
+
+struct Asset {
+    std::string assetName = "";
+    SDL_Texture* assetFrameTexture = nullptr; // The Video frame (or Audio album cover) to show as an image
+    VideoData* videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
+    AudioData* audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
+};
 
 /**
  * @class AssetsList
@@ -10,7 +18,7 @@
  */
 class AssetsList : public Segment {
 public:
-    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
+    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
     ~AssetsList();
 
     void render() override;
@@ -33,17 +41,18 @@ private:
 
     /**
      * @brief Get a specific frame from a video.
+     * @param videoData The videoData needed to get the frame.
      * @param frameIndex The index of the video frame to return.
      * @return The chosen video frame.
      */
-    AVFrame* getFrame(int frameIndex);
+    AVFrame* getFrame(VideoData* videoData, int frameIndex);
 
     /**
      * @brief Return a texture for a video thumbail.
-     * @param filepath The path to the video file.
+     * @param videoData The videoData needed to get the frame to create a texture for.
      * @return The texture with the video's thumbnail.
      */
-    SDL_Texture* getFrameTexture(const char* filepath);
+    SDL_Texture* getFrameTexture(VideoData* videoData);
 
 #ifdef _WIN32
     /**
@@ -54,7 +63,20 @@ private:
     SDL_Texture* getWindowsThumbnail(const wchar_t* wfilepath);
 #endif // _WIN32
 private:
-    SDL_Texture* m_videoFrameTexture = nullptr; // The texture to render
-    VideoData* m_videoData = new VideoData(); // Holds all VideoData that ffmpeg needs for processing video
-    AudioData* m_audioData = new AudioData(); // Holds all AudioData that ffmpeg needs for processing audio
+    std::vector<Asset> m_assets; // List of all video/audio assets
+    SDL_Color m_altColor; // Alternative color for alterating assets BG
+    bool m_useWindowsThumbnail = false; // Whether or not to use the same frame as windows for the video image (if on windows)
+    int m_scrollOffset = 0;
+    int m_scrollSpeed = 20;
+
+    int m_assetXPos = 10; // Whitespace amount left of an asset image
+    int m_assetStartYPos = 8; // y-pos where the first asset starts
+    int m_assetImageWidth = 96; // w:h ratio = 16:9
+    int m_assetImageHeight = 54;
+    int m_assetHeight = m_assetImageHeight + 2; // An additional two pixels between images
+    int m_scrollBarWidth = 6;
+    int m_scrollBarXPos = 6; // x-pos from the right of the segment
+    SDL_Color m_scrollBarBGColor = { 27, 30, 32, 255 };
+    SDL_Color m_scrollBarColor = { 48, 91, 115, 255 };
+    SDL_Color m_scrollBarBorderColor = { 80, 84, 87, 255 };
 };

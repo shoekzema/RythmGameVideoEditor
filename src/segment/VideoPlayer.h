@@ -11,7 +11,7 @@
  */
 class VideoPlayer : public Segment {
 public:
-    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 0, 0, 0, 255 });
+    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
     ~VideoPlayer();
 
     void render() override;
