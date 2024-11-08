@@ -20,7 +20,7 @@ void AssetsList::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
-    SDL_Rect thumbnailRect = {10, 8, 96, 54}; // w:h ratio = 16:9
+    SDL_Rect thumbnailRect = { m_assetXPos, m_assetStartYPos - m_scrollOffset, m_assetImageWidth, m_assetImageHeight };
     for (int i = 0; i < m_assets.size(); i++) {
         // Use alternative background color rect for every second asset
         if (i % 2 == 1) {
@@ -58,6 +58,28 @@ void AssetsList::render() {
 
         thumbnailRect.y += 2 + thumbnailRect.h;
     }
+
+    // If scrolling is possible, draw the scrollbar
+    int assetListLength;
+    assetListLength = m_assets.size() * m_assetHeight;
+    if (assetListLength + m_assetStartYPos > rect.h) {
+        // Draw the scrollbar border
+        SDL_Rect scrollbarBorder = { rect.w - m_scrollBarXPos - m_scrollBarWidth, m_assetStartYPos, m_scrollBarWidth, rect.h - 2 * m_assetStartYPos };
+        SDL_SetRenderDrawColor(p_renderer, m_scrollBarBorderColor.r, m_scrollBarBorderColor.g, m_scrollBarBorderColor.b, m_scrollBarBorderColor.a);
+        SDL_RenderFillRect(p_renderer, &scrollbarBorder);
+
+        // Draw the scrollbar background
+        SDL_Rect scrollbarBackground = { scrollbarBorder.x + 1, scrollbarBorder.y + 1, scrollbarBorder.w - 2, scrollbarBorder.h - 2 };
+        SDL_SetRenderDrawColor(p_renderer, m_scrollBarBGColor.r, m_scrollBarBGColor.g, m_scrollBarBGColor.b, m_scrollBarBGColor.a);
+        SDL_RenderFillRect(p_renderer, &scrollbarBackground);
+
+        // Draw the scrollbar handle
+        int scrollbarYpos = scrollbarBorder.y + (m_scrollOffset * scrollbarBorder.h / assetListLength);
+        int scrollbarHeight = scrollbarBorder.h * scrollbarBorder.h / assetListLength;
+        SDL_Rect scrollbarHandle = { scrollbarBorder.x, scrollbarYpos, scrollbarBorder.w, scrollbarHeight };
+        SDL_SetRenderDrawColor(p_renderer, m_scrollBarColor.r, m_scrollBarColor.g, m_scrollBarColor.b, m_scrollBarColor.a);
+        SDL_RenderFillRect(p_renderer, &scrollbarHandle);
+    }
 }
 
 void AssetsList::handleEvent(SDL_Event& event) {
@@ -75,6 +97,17 @@ void AssetsList::handleEvent(SDL_Event& event) {
         break;
 
     case SDL_MOUSEWHEEL:
+        // Check if scrolling neccesary
+        int assetListLength;
+        assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+        if (assetListLength <= rect.h) break;
+
+        // Scroll
+        m_scrollOffset -= event.wheel.y * m_scrollSpeed;
+
+        // Clamp the scroll position
+        if (m_scrollOffset < 0) m_scrollOffset = 0;
+        if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
         break;
 
     case SDL_DROPFILE: {
@@ -108,6 +141,13 @@ Segment* AssetsList::findTypeImpl(const std::type_info& type) {
 
 void AssetsList::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
+
+    // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the segment size, it will scroll up if possible)
+    int assetListLength;
+    assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+    if (assetListLength > rect.h) {
+        if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
+    }
 }
 
 bool AssetsList::loadFile(const char* filepath) {

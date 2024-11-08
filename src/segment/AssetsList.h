@@ -65,4 +65,17 @@ private:
     std::vector<Asset> m_assets; // List of all video/audio assets
     SDL_Color m_altColor; // Alternative color for alterating assets BG
     bool m_useWindowsThumbnail = false;
+    int m_scrollOffset = 0;
+    int m_scrollSpeed = 20;
+
+    int m_assetXPos = 10;
+    int m_assetStartYPos = 8;
+    int m_assetImageWidth = 96; // w:h ratio = 16:9
+    int m_assetImageHeight = 54;
+    int m_assetHeight = m_assetImageHeight + 2;
+    int m_scrollBarWidth = 6;
+    int m_scrollBarXPos = 6; // x-pos from the right of the segment
+    SDL_Color m_scrollBarBGColor = { 27, 30, 32, 255 };
+    SDL_Color m_scrollBarColor = { 48, 91, 115, 255 };
+    SDL_Color m_scrollBarBorderColor = { 80, 84, 87, 255 };
 };
