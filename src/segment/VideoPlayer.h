@@ -19,6 +19,8 @@ public:
     void handleEvent(SDL_Event& event) override;
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
+    void setVideoRect(SDL_Rect* rect);
+
     // Render video and audio based on the segments in the timeline at the current timeline time.
     void playTimeline(Timeline* timeline);
 
@@ -31,6 +33,9 @@ private:
     SDL_Texture* m_videoTexture = nullptr; // Texture for the video frame
     VideoData* m_videoData = nullptr; // Holds pointers to all VideoData for ffmpeg to be able to read frames
     Timeline* m_timeline = nullptr; // Pointer towards the timeline segment
+    SDL_Rect m_videoRect; // Rectangle to display the video in
+    int m_WtoH_ratioW = 16; // Width to height ratio: width (default 1920:1080 = 16:9)
+    int m_WtoH_ratioH = 9; // Width to height ratio: height (default 1920:1080 = 16:9)
 
     SDL_AudioDeviceID m_audioDevice;
     SDL_AudioSpec m_audioSpec;

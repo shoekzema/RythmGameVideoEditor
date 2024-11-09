@@ -4,6 +4,8 @@
 VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color)
 {
+    setVideoRect(&rect);
+
     // Initialize SDL audio device and resampler (SwrContext)
     SDL_zero(m_audioSpec);
     m_audioSpec.freq = 44100;
@@ -45,6 +47,9 @@ void VideoPlayer::render() {
             // Pause or stop any other playback actions as needed
             m_lastVideoSegment = nullptr;
             m_lastAudioSegment = nullptr;
+
+            SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
+            SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
         }
     }
     else {
@@ -62,6 +67,23 @@ void VideoPlayer::handleEvent(SDL_Event& event) { }
 
 void VideoPlayer::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
+    setVideoRect(&rect);
+}
+
+void VideoPlayer::setVideoRect(SDL_Rect* rect) {
+    // Set the video display Rect. Keeps the video resolution, regardless of segment proportions
+    m_videoRect = *rect;
+
+    // If the segment's height to width ratio is longer than the video, reshape the height and ypos
+    if (rect->w * m_WtoH_ratioH < rect->h * m_WtoH_ratioW) { // for 16:9 ratio
+        m_videoRect.h = rect->w * m_WtoH_ratioH / m_WtoH_ratioW;
+        m_videoRect.y = rect->y + (rect->h - m_videoRect.h) / 2;
+    }
+    // If the segment's width to height ratio is wider than the video, reshape the width and xpos
+    if (rect->w * m_WtoH_ratioH > rect->h * m_WtoH_ratioW) { // for 16:9 ratio
+        m_videoRect.w = rect->h * m_WtoH_ratioW / m_WtoH_ratioH;
+        m_videoRect.x = rect->x + (rect->w - m_videoRect.w) / 2;
+    }
 }
 
 void VideoPlayer::playTimeline(Timeline* timeline) {
@@ -100,8 +122,12 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
             );
 
             // Draw the texture
-            SDL_RenderCopy(p_renderer, m_videoTexture, nullptr, &rect);
+            SDL_RenderCopy(p_renderer, m_videoTexture, nullptr, &m_videoRect);
         }
+    }
+    else {
+        SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
+        SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
     }
 
     // Get the current audio segment (if applicable)
