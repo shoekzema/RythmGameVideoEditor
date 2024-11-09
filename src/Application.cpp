@@ -45,6 +45,13 @@ bool Application::init() {
         return -1;
     }
     setFont(m_font);
+
+    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 16);
+    setFontBig(m_font);
+
+    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 10);
+    setFontSmall(m_font);
+
     return true;
 }
 

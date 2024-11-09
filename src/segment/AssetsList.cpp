@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <SDL_ttf.h>
 #include "AssetsList.h"
 #include "util.h"
 
@@ -31,30 +32,11 @@ void AssetsList::render() {
 
         SDL_RenderCopy(p_renderer, m_assets[i].assetFrameTexture, nullptr, &thumbnailRect);
 
-        SDL_Color textColor = { 255, 255, 255, 255 };
-        SDL_Surface* textSurface = TTF_RenderText_Solid(getFont(), m_assets[i].assetName.c_str(), textColor);
-        if (!textSurface) {
-            printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
-        }
-        else {
-            // Convert surface to texture
-            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(p_renderer, textSurface);
-            SDL_FreeSurface(textSurface); // Free the surface now that we have a texture
-
-            if (!textTexture) {
-                printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
-            }        
-            
-            // Define the destination rectangle for the text
-            SDL_Rect textRect;
-            textRect.x = thumbnailRect.x + thumbnailRect.w + 6; // X position
-            textRect.y = thumbnailRect.y + 4; // Y position
-            SDL_QueryTexture(textTexture, nullptr, nullptr, &textRect.w, &textRect.h); // Get width and height from the texture
-
-            SDL_RenderCopy(p_renderer, textTexture, nullptr, &textRect); // Render text
-
-            SDL_DestroyTexture(textTexture);
-        }
+        renderText(p_renderer,
+            thumbnailRect.x + thumbnailRect.w + 6, // X position
+            thumbnailRect.y + 4,                   // Y position
+            getFont(),
+            m_assets[i].assetName.c_str());
 
         thumbnailRect.y += 2 + thumbnailRect.h;
     }

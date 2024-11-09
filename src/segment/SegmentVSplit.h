@@ -21,10 +21,10 @@ public:
     void setRightSegment(Segment* segment);
 private:
     SDL_Rect m_divider;
-    SDL_Color m_dividerColor = { 255, 255, 255, 255 }; // white
+    SDL_Color m_dividerColor = { 95, 98, 101, 255 };
     bool m_draggingDivider = false;
     bool m_resizing = false; // For resize handles
-    int m_dividerThickness = 8;
+    int m_dividerThickness = 2;
 
     Segment* m_leftSegment;
     Segment* m_rightSegment;

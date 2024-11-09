@@ -37,6 +37,37 @@ std::string getFullPath(const char* internalPath) {
 }
 
 static TTF_Font* s_font;
+static TTF_Font* s_fontBig;
+static TTF_Font* s_fontSmall;
 
 void setFont(TTF_Font* font) { s_font = font; }
+void setFontBig(TTF_Font* font) { s_fontBig = font; }
+void setFontSmall(TTF_Font* font) { s_fontSmall = font; }
+
 TTF_Font* getFont() { return s_font; }
+TTF_Font* getFontBig() { return s_fontBig; }
+TTF_Font* getFontSmall() { return s_fontSmall; }
+
+void renderText(SDL_Renderer* renderer, int xPos, int yPos, TTF_Font* font, const char* text, SDL_Color color) {
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, text, color);
+    if (!textSurface) {
+        printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
+    }
+    else {
+        // Convert surface to texture
+        SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+        SDL_FreeSurface(textSurface); // Free the surface now that we have a texture
+
+        if (!textTexture) printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
+
+        // Define the destination rectangle for the text
+        SDL_Rect textRect;
+        textRect.x = xPos;
+        textRect.y = yPos;
+        SDL_QueryTexture(textTexture, nullptr, nullptr, &textRect.w, &textRect.h); // Get width and height from the texture
+
+        SDL_RenderCopy(renderer, textTexture, nullptr, &textRect); // Render text
+
+        SDL_DestroyTexture(textTexture);
+    }
+}

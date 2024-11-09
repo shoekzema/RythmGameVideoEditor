@@ -55,9 +55,27 @@ public:
     void addAudioSegment(AudioData* data);
 private:
     bool m_playing = false;
-    std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments on the video track
-    std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments on the audio track
+    std::vector<std::vector<VideoSegment>> m_videoTracks; // List of all videoTracks with for every videoTrack a list of all VideoSegments on it.
+    std::vector<std::vector<AudioSegment>> m_audioTracks; // List of all audioTracks with for every audioTrack a list of all AudioSegments on it.
     double m_currentTime = 0.0;   // The current time (and position) of the timeline (in seconds)
     double m_startPlayTime = 0.0; // The time in the timeline where playing starts from (in seconds)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
+
+    int m_topBarheight = 30;
+    int m_trackDataWidth = 100;
+    int m_trackStartXPos = m_trackDataWidth + 2;
+    int m_trackHeight = 64;
+    int m_rowHeight = m_trackHeight + 2; // Includes a pixel below and above
+
+    SDL_Color m_videoTrackBGColor      = { 35,  38,  41, 255 };
+    SDL_Color m_videoTrackDataColor    = { 33,  36,  39, 255 };
+    SDL_Color m_videoTrackSegmentColor = { 19, 102, 162, 255 };
+
+    SDL_Color m_audioTrackBGColor      = { 40, 37, 45, 255 };
+    SDL_Color m_audioTrackDataColor    = { 38, 35, 43, 255 };
+    SDL_Color m_audioTrackSegmentColor = { 13, 58, 32, 255 };
+
+    SDL_Color m_segmentOutlineColor = {  61, 174, 233, 255 };
+    SDL_Color m_timeIndicatorColor  = { 255, 255, 255, 255 };
+    SDL_Color m_betweenLineColor    = {  30,  33,  36, 255 };
 };
