@@ -48,12 +48,12 @@ void Timeline::render() {
         // Draw all video segments on the track
         for (VideoSegment& segment : m_videoTracks[i]) {
             // Draw the outlines
-            SDL_Rect outlineRect = { videoTrackRect.x + segment.timelinePosition - 1, videoTrackRect.y - 1, segment.timelinePosition + (int)segment.duration + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { videoTrackRect.x + (int)segment.timelinePosition - 1, videoTrackRect.y - 1, (int)segment.duration + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { videoTrackRect.x + segment.timelinePosition + 1, videoTrackRect.y + 1, segment.timelinePosition + (int)segment.duration - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { videoTrackRect.x + (int)segment.timelinePosition + 1, videoTrackRect.y + 1, (int)segment.duration - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_videoTrackSegmentColor.r, m_videoTrackSegmentColor.g, m_videoTrackSegmentColor.b, m_videoTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
@@ -84,12 +84,12 @@ void Timeline::render() {
         // Draw all audio segments on the track
         for (AudioSegment& segment : m_audioTracks[i]) {
             // Draw the outlines
-            SDL_Rect outlineRect = { audioTrackRect.x + segment.timelinePosition - 1, audioTrackRect.y - 1, segment.timelinePosition + (int)segment.duration + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { audioTrackRect.x + (int)segment.timelinePosition - 1, audioTrackRect.y - 1, (int)segment.duration + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { audioTrackRect.x + segment.timelinePosition + 1, audioTrackRect.y + 1, segment.timelinePosition + (int)segment.duration - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { audioTrackRect.x + (int)segment.timelinePosition + 1, audioTrackRect.y + 1, (int)segment.duration - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_audioTrackSegmentColor.r, m_audioTrackSegmentColor.g, m_audioTrackSegmentColor.b, m_audioTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
