@@ -20,6 +20,23 @@ void Timeline::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect);
 
+    // Draw the top bar
+    int xPos = rect.x + m_trackStartXPos;
+    int yPos = rect.y;
+    double timeLabel = 0.0;
+    SDL_SetRenderDrawColor(p_renderer, m_timeLabelColor.r, m_timeLabelColor.g, m_timeLabelColor.b, m_timeLabelColor.a);
+    while (xPos < rect.x + rect.w) {
+        SDL_Rect textRect = renderTextWithCustomSpacing(p_renderer, xPos, yPos,
+            getFont(), formatTime(timeLabel, m_fps).c_str(),
+            -1, m_timeLabelColor);
+
+        SDL_RenderDrawLine(p_renderer, xPos, rect.h + textRect.h, xPos, rect.h + m_topBarheight); // Big label
+        SDL_RenderDrawLine(p_renderer, xPos + m_timeLabelInterval / 2, rect.h + textRect.h * 1.5, xPos + m_timeLabelInterval / 2, rect.h + m_topBarheight); // Small halfway label
+
+        xPos += m_timeLabelInterval;
+        timeLabel += m_timeLabelInterval / m_zoom;
+    }
+
     int trackYpos = rect.y + m_topBarheight; // y-position for the next track
 
     // Draw all video tracks
@@ -48,12 +65,12 @@ void Timeline::render() {
         // Draw all video segments on the track
         for (VideoSegment& segment : m_videoTracks[i]) {
             // Draw the outlines
-            SDL_Rect outlineRect = { videoTrackRect.x + (int)segment.timelinePosition - 1, videoTrackRect.y - 1, (int)segment.duration + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { videoTrackRect.x + (int)(segment.timelinePosition * m_zoom) - 1, videoTrackRect.y - 1, (int)(segment.duration * m_zoom) + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { videoTrackRect.x + (int)segment.timelinePosition + 1, videoTrackRect.y + 1, (int)segment.duration - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { videoTrackRect.x + (int)(segment.timelinePosition * m_zoom) + 1, videoTrackRect.y + 1, (int)(segment.duration * m_zoom) - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_videoTrackSegmentColor.r, m_videoTrackSegmentColor.g, m_videoTrackSegmentColor.b, m_videoTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
@@ -84,12 +101,12 @@ void Timeline::render() {
         // Draw all audio segments on the track
         for (AudioSegment& segment : m_audioTracks[i]) {
             // Draw the outlines
-            SDL_Rect outlineRect = { audioTrackRect.x + (int)segment.timelinePosition - 1, audioTrackRect.y - 1, (int)segment.duration + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { audioTrackRect.x + (int)(segment.timelinePosition * m_zoom) - 1, audioTrackRect.y - 1, (int)(segment.duration * m_zoom) + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { audioTrackRect.x + (int)segment.timelinePosition + 1, audioTrackRect.y + 1, (int)segment.duration - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { audioTrackRect.x + (int)(segment.timelinePosition * m_zoom) + 1, audioTrackRect.y + 1, (int)(segment.duration * m_zoom) - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_audioTrackSegmentColor.r, m_audioTrackSegmentColor.g, m_audioTrackSegmentColor.b, m_audioTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
@@ -97,7 +114,7 @@ void Timeline::render() {
     }
 
     // Draw the current time indicator (a vertical line)
-    int indicatorX = m_trackDataWidth + (int)m_currentTime;
+    int indicatorX = m_trackStartXPos + (int)(m_currentTime * m_zoom);
     SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
     SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, trackYpos);
 }

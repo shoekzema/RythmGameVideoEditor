@@ -28,5 +28,27 @@ TTF_Font* getFontSmall();
  * @param font The font (includes size) of the text.
  * @param text The text to render.
  * @param color The text color.
+ * @returns The boundary rectangle of the resulting text.
  */
-void renderText(SDL_Renderer* renderer, int xPos, int yPos, TTF_Font* font, const char* text, SDL_Color color = { 255, 255, 255, 255 });
+SDL_Rect renderText(SDL_Renderer* renderer, int xPos, int yPos, TTF_Font* font, const char* text, SDL_Color color = { 255, 255, 255, 255 });
+
+/**
+ * @brief Renders some text to the screen at a position with custom spacing between characters.
+ * @param renderer The SDL_Renderer to use.
+ * @param xPos The text's top-left x-position on screen.
+ * @param yPos The text's top-left y-position on screen.
+ * @param font The font (includes size) of the text.
+ * @param text The text to render.
+ * @param customSpacing The amount of pixels to add or subtract from the normal space in between characters.
+ * @param color The text color.
+ * @returns The boundary rectangle of the resulting text.
+ */
+SDL_Rect renderTextWithCustomSpacing(SDL_Renderer* renderer, int xPos, int yPos, TTF_Font* font, std::string text, int customSpacing, SDL_Color color = { 255, 255, 255, 255 });
+
+/**
+ * @brief Format a double with a time into hh:mm:ss:ff format. (Hours, Minutes, seconds, frames)
+ * @param timeInSeconds The time in seconds to format.
+ * @param fps The amount of frames per second.
+ * @returns The formatted time as a String.
+ */
+std::string formatTime(double timeInSeconds, int fps);

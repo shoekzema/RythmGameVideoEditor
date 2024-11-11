@@ -60,7 +60,10 @@ private:
     double m_currentTime = 0.0;   // The current time (and position) of the timeline (in seconds)
     double m_startPlayTime = 0.0; // The time in the timeline where playing starts from (in seconds)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
+    int m_fps = 60; // Target frames per second to render in.
 
+    float m_zoom = 10;
+    int m_timeLabelInterval = 70;
     int m_topBarheight = 30;
     int m_trackDataWidth = 100;
     int m_trackStartXPos = m_trackDataWidth + 2;
@@ -78,4 +81,5 @@ private:
     SDL_Color m_segmentOutlineColor = {  61, 174, 233, 255 };
     SDL_Color m_timeIndicatorColor  = { 255, 255, 255, 255 };
     SDL_Color m_betweenLineColor    = {  30,  33,  36, 255 };
+    SDL_Color m_timeLabelColor      = { 180, 180, 180, 255 };
 };
