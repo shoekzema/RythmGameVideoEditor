@@ -6,17 +6,19 @@
 // Segment in the timeline with a pointer to the corresponding video data and data on what of that video is to be played.
 struct VideoSegment {
     VideoData* videoData;      // Reference to the video data
-    double sourceStartTime;    // Start time in the original video file
-    double duration;           // Duration of this segment
-    double timelinePosition;   // Position in the overall timeline
+    Uint32 sourceStartTime;    // Start time in the original video file
+    Uint32 duration;           // Duration of this segment in its own fps
+    Uint32 timelinePosition;   // Position in the overall timeline
+    Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
 };
 
 // Segment in the timeline with a pointer to the corresponding audio data and data on what of that audio is to be played.
 struct AudioSegment {
     AudioData* audioData;      // Reference to the audio data
-    double sourceStartTime;    // Start time in the original audio file
-    double duration;           // Duration of this segment
-    double timelinePosition;   // Position in the overall timeline
+    Uint32 sourceStartTime;    // Start time in the original audio file
+    Uint32 duration;           // Duration of this segment
+    Uint32 timelinePosition;   // Position in the overall timeline
+    Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
 };
 
 /**
@@ -42,11 +44,17 @@ public:
     // Returns if the timeline is playing
     bool isPlaying();
 
-    // Get the current time in the timeline (in seconds)
-    double getCurrentTime();
+    // Get the timeline's target frames per second
+    int getFPS();
+
+    // Set the timeline's target frames per second
+    void setFPS(int fps);
+
+    // Get the current time in the timeline (as a frameIndex)
+    Uint32 getCurrentTime();
 
     // Set the current time (in seconds) in the timeline
-    void setCurrentTime(double time);
+    void setCurrentTime(Uint32 time);
 
     // Add a video segment to the timeline video track
     void addVideoSegment(VideoData* data);
@@ -57,12 +65,12 @@ private:
     bool m_playing = false;
     std::vector<std::vector<VideoSegment>> m_videoTracks; // List of all videoTracks with for every videoTrack a list of all VideoSegments on it.
     std::vector<std::vector<AudioSegment>> m_audioTracks; // List of all audioTracks with for every audioTrack a list of all AudioSegments on it.
-    double m_currentTime = 0.0;   // The current time (and position) of the timeline (in seconds)
-    double m_startPlayTime = 0.0; // The time in the timeline where playing starts from (in seconds)
+    Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
+    Uint32 m_startPlayTime = 0.0; // The time in the timeline where playing starts from (in frames)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
     int m_fps = 60; // Target frames per second to render in.
 
-    float m_zoom = 10;
+    Uint32 m_zoom = 512; // The amount to zoom out (minimum = 2, meaning a distance of 2 frame between timeline labels)
     int m_timeLabelInterval = 70;
     int m_topBarheight = 30;
     int m_trackDataWidth = 100;

@@ -131,3 +131,19 @@ std::string formatTime(double timeInSeconds, int fps) {
 
     return oss.str();
 }
+
+std::string formatTime(Uint32 timeInFrames, int fps) {
+    int frames = timeInFrames % fps;
+    int seconds = (timeInFrames - frames) / fps % 60;
+    int minutes = (timeInFrames - seconds - frames) / fps / 60 % 60;
+    int hours = (timeInFrames - minutes - seconds - frames) / fps / 3600;
+
+    // Format the output with zero-padded values
+    std::ostringstream oss;
+    oss << std::setw(2) << std::setfill('0') << hours << ":"
+        << std::setw(2) << std::setfill('0') << minutes << ":"
+        << std::setw(2) << std::setfill('0') << seconds << ":"
+        << std::setw(2) << std::setfill('0') << frames;
+
+    return oss.str();
+}

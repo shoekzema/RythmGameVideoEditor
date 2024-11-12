@@ -23,7 +23,7 @@ void Timeline::render() {
     // Draw the top bar
     int xPos = rect.x + m_trackStartXPos;
     int yPos = rect.y;
-    double timeLabel = 0.0;
+    Uint32 timeLabel = 0;
     SDL_SetRenderDrawColor(p_renderer, m_timeLabelColor.r, m_timeLabelColor.g, m_timeLabelColor.b, m_timeLabelColor.a);
     while (xPos < rect.x + rect.w) {
         SDL_Rect textRect = renderTextWithCustomSpacing(p_renderer, xPos, yPos,
@@ -34,7 +34,7 @@ void Timeline::render() {
         SDL_RenderDrawLine(p_renderer, xPos + m_timeLabelInterval / 2, rect.h + textRect.h * 1.5, xPos + m_timeLabelInterval / 2, rect.h + m_topBarheight); // Small halfway label
 
         xPos += m_timeLabelInterval;
-        timeLabel += m_timeLabelInterval / m_zoom;
+        timeLabel += m_zoom;
     }
 
     int trackYpos = rect.y + m_topBarheight; // y-position for the next track
@@ -64,13 +64,16 @@ void Timeline::render() {
 
         // Draw all video segments on the track
         for (VideoSegment& segment : m_videoTracks[i]) {
+            int xPos = videoTrackRect.x + segment.timelinePosition * m_timeLabelInterval / m_zoom;
+            int width = segment.timelineDuration * m_timeLabelInterval / m_zoom;
+
             // Draw the outlines
-            SDL_Rect outlineRect = { videoTrackRect.x + (int)(segment.timelinePosition * m_zoom) - 1, videoTrackRect.y - 1, (int)(segment.duration * m_zoom) + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { xPos - 1, videoTrackRect.y - 1, width + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { videoTrackRect.x + (int)(segment.timelinePosition * m_zoom) + 1, videoTrackRect.y + 1, (int)(segment.duration * m_zoom) - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { xPos + 1, videoTrackRect.y + 1, width - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_videoTrackSegmentColor.r, m_videoTrackSegmentColor.g, m_videoTrackSegmentColor.b, m_videoTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
@@ -100,13 +103,16 @@ void Timeline::render() {
 
         // Draw all audio segments on the track
         for (AudioSegment& segment : m_audioTracks[i]) {
+            int xPos = audioTrackRect.x + segment.timelinePosition * m_timeLabelInterval / m_zoom;
+            int width = segment.timelineDuration * m_timeLabelInterval / m_zoom;
+
             // Draw the outlines
-            SDL_Rect outlineRect = { audioTrackRect.x + (int)(segment.timelinePosition * m_zoom) - 1, audioTrackRect.y - 1, (int)(segment.duration * m_zoom) + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { xPos - 1, audioTrackRect.y - 1, width + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { audioTrackRect.x + (int)(segment.timelinePosition * m_zoom) + 1, audioTrackRect.y + 1, (int)(segment.duration * m_zoom) - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { xPos + 1, audioTrackRect.y + 1, width - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_audioTrackSegmentColor.r, m_audioTrackSegmentColor.g, m_audioTrackSegmentColor.b, m_audioTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
@@ -114,7 +120,7 @@ void Timeline::render() {
     }
 
     // Draw the current time indicator (a vertical line)
-    int indicatorX = m_trackStartXPos + (int)(m_currentTime * m_zoom);
+    int indicatorX = m_trackStartXPos + m_currentTime * m_timeLabelInterval / m_zoom;
     SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
     SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, trackYpos);
 }
@@ -143,7 +149,7 @@ void Timeline::handleEvent(SDL_Event& event) {
 VideoSegment* Timeline::getCurrentVideoSegment() {
     if (m_videoTracks.empty()) return nullptr;
 
-    double currentTime = getCurrentTime();
+    Uint32 currentTime = getCurrentTime();
 
     // Iterate over video tracks 
     for (auto& track : m_videoTracks) {
@@ -159,7 +165,9 @@ VideoSegment* Timeline::getCurrentVideoSegment() {
 }
 
 AudioSegment* Timeline::getCurrentAudioSegment() {
-    double currentTime = getCurrentTime();
+    if (m_audioTracks.empty()) return nullptr;
+
+    Uint32 currentTime = getCurrentTime();
 
     // Iterate over audio tracks (TODO: merge audio if multiple tracks have a audioSegment to play at this time)
     for (auto& track : m_audioTracks) {
@@ -179,16 +187,24 @@ bool Timeline::isPlaying() {
     return m_playing;
 }
 
-double Timeline::getCurrentTime() {
+int Timeline::getFPS() {
+    return m_fps;
+}
+
+void Timeline::setFPS(int fps) {
+    m_fps = fps;
+}
+
+Uint32 Timeline::getCurrentTime() {
     if (m_playing) {
         // If playing, calculate the current time based on how long it's been playing
         Uint32 now = SDL_GetTicks();
-        m_currentTime = (now - m_startTime) / 1000.0; // Update time in seconds
+        m_currentTime = static_cast<Uint32>((now - m_startTime) / 1000.0 * m_fps);
     }
     return m_currentTime;
 }
 
-void Timeline::setCurrentTime(double time) {
+void Timeline::setCurrentTime(Uint32 time) {
     m_currentTime = time;
 }
 
@@ -202,19 +218,20 @@ Segment* Timeline::findTypeImpl(const std::type_info& type) {
 void Timeline::addVideoSegment(VideoData* data) {
     if (m_videoTracks.empty()) return;
 
-    double position = 0.0;
+    Uint32 position = 0;
     // Get the x-position on the right of the last video segment
     if (!m_videoTracks[0].empty()) {
         VideoSegment lastSegment = m_videoTracks[0].back();
-        position = lastSegment.timelinePosition + lastSegment.duration;
+        position = lastSegment.timelinePosition + lastSegment.timelineDuration;
     }
 
     // Create and add a new videoSegment
     VideoSegment videoSegment = {
         .videoData = data,
-        .sourceStartTime = 0.0,
-        .duration = data->getVideoDuration(),
-        .timelinePosition = position
+        .sourceStartTime = 0,
+        .duration = data->getVideoDurationInFrames(),
+        .timelinePosition = position,
+        .timelineDuration = data->getVideoDurationInFrames(m_fps)
     };
     m_videoTracks[0].push_back(videoSegment);
 }
@@ -222,19 +239,20 @@ void Timeline::addVideoSegment(VideoData* data) {
 void Timeline::addAudioSegment(AudioData* data) {
     if (m_audioTracks.empty()) return;
 
-    double position = 0.0;
+    Uint32 position = 0;
     // Get the x-position on the right of the last audio segment
     if (!m_audioTracks[0].empty()) {
         AudioSegment lastSegment = m_audioTracks[0].back();
-        position = lastSegment.timelinePosition + lastSegment.duration;
+        position = lastSegment.timelinePosition + lastSegment.timelineDuration;
     }
 
     // Create and add a new audioSegment
     AudioSegment audioSegment = {
         .audioData = data,
-        .sourceStartTime = 0.0,
-        .duration = data->getAudioDuration(),
-        .timelinePosition = position
+        .sourceStartTime = 0,
+        .duration = data->getAudioDurationInFrames(),
+        .timelinePosition = position,
+        .timelineDuration = data->getAudioDurationInFrames(m_fps)
     };
     m_audioTracks[0].push_back(audioSegment);
 }

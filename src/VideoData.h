@@ -53,6 +53,30 @@ struct VideoData {
         // Convert to seconds: AV_TIME_BASE is 1,000,000 (microseconds per second)
         return (double)durationInMicroseconds / AV_TIME_BASE;
     }
+
+    // Get the video duration in frames
+    Uint32 getVideoDurationInFrames() {
+        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+
+        double durationInSeconds = getVideoDuration();
+
+        // Get the frame rate of the video stream
+        AVRational frameRate = formatContext->streams[streamIndex]->avg_frame_rate;
+        double framesPerSecond = av_q2d(frameRate);
+
+        // Calculate the total number of frames
+        return static_cast<Uint32>(durationInSeconds * framesPerSecond);
+    }
+
+    // Get the video duration in frames with a target fps
+    Uint32 getVideoDurationInFrames(int targetFramerate) {
+        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+
+        double durationInSeconds = getVideoDuration();
+
+        // Calculate the total number of frames
+        return static_cast<Uint32>(durationInSeconds * targetFramerate);
+    }
 };
 
 // Structure holding all preprocessed ffmpeg data to be able to quickly process videos
@@ -94,6 +118,35 @@ struct AudioData {
 
         // Convert to seconds: AV_TIME_BASE is 1,000,000 (microseconds per second)
         return (double)durationInMicroseconds / AV_TIME_BASE;
+    }
+
+    // Get the audio duration in frames
+    Uint32 getAudioDurationInFrames() {
+        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+
+        double durationInSeconds = getAudioDuration();
+
+        // Get the sample rate (samples per second) from the audio stream's codec parameters
+        int sampleRate = formatContext->streams[streamIndex]->codecpar->sample_rate;
+        if (sampleRate <= 0) return 0; // Return 0 if the sample rate is invalid
+
+        AVStream* audioStream = formatContext->streams[streamIndex];
+
+        // Calculate the audio duration in frames
+        double durationInFrames = static_cast<double>(audioStream->duration) * audioStream->time_base.num / audioStream->time_base.den;
+
+        // Calculate the total number of frames
+        return static_cast<Uint32>(durationInSeconds * sampleRate);
+    }
+
+    // Get the audio duration in frames with a target fps
+    Uint32 getAudioDurationInFrames(int targetFramerate) {
+        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+
+        double durationInSeconds = getAudioDuration();
+
+        // Calculate the total number of frames
+        return static_cast<Uint32>(durationInSeconds * targetFramerate);
     }
 };
 

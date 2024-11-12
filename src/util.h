@@ -52,3 +52,11 @@ SDL_Rect renderTextWithCustomSpacing(SDL_Renderer* renderer, int xPos, int yPos,
  * @returns The formatted time as a String.
  */
 std::string formatTime(double timeInSeconds, int fps);
+
+/**
+ * @brief Format an Uint32 with a time into hh:mm:ss:ff format. (Hours, Minutes, seconds, frames)
+ * @param timeInFrames The time in a number of frames to format.
+ * @param fps The amount of frames per second.
+ * @returns The formatted time as a String.
+ */
+std::string formatTime(Uint32 timeInFrames, int fps);

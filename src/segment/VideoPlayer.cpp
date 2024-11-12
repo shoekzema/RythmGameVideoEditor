@@ -39,7 +39,7 @@ void VideoPlayer::render() {
 
     if (m_timeline) {
         if (m_timeline->isPlaying()) {
-            playTimeline(m_timeline);
+            playTimeline();
         }
         else {
             SDL_PauseAudioDevice(m_audioDevice, 1);
@@ -86,9 +86,9 @@ void VideoPlayer::setVideoRect(SDL_Rect* rect) {
     }
 }
 
-void VideoPlayer::playTimeline(Timeline* timeline) {
+void VideoPlayer::playTimeline() {
     // Get the current video segment from the timeline
-    VideoSegment* currentVideoSegment = timeline->getCurrentVideoSegment();
+    VideoSegment* currentVideoSegment = m_timeline->getCurrentVideoSegment();
     if (currentVideoSegment) {
         // Get and decode the video frame at the corresponding time in the segment
         if (!getVideoFrame(currentVideoSegment)) {
@@ -131,7 +131,7 @@ void VideoPlayer::playTimeline(Timeline* timeline) {
     }
 
     // Get the current audio segment (if applicable)
-    AudioSegment* currentAudioSegment = timeline->getCurrentAudioSegment();
+    AudioSegment* currentAudioSegment = m_timeline->getCurrentAudioSegment();
     if (!currentAudioSegment) {
         //std::cout << "No audio segment found at the current timeline position." << std::endl;
         SDL_PauseAudioDevice(m_audioDevice, 1); // Pause audio if no audio segments found at the current timeline position.
@@ -151,10 +151,11 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
     if (m_lastVideoSegment != videoSegment) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base;
-        int64_t targetTimestamp = (int64_t)(videoSegment->sourceStartTime / av_q2d(timeBase));
 
-        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "Error seeking video to timestamp: " << videoSegment->sourceStartTime << " seconds." << std::endl;
+        Uint32 targetFrameIndex = videoSegment->sourceStartTime;
+
+        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetFrameIndex, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking video to frame index: " << targetFrameIndex << std::endl;
             return false;
         }
 
@@ -176,15 +177,36 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
 
             // Receive the frame from the decoder
             if (avcodec_receive_frame(videoSegment->videoData->codecContext, videoSegment->videoData->frame) == 0) {
-                // Calculate the frame's presentation timestamp in seconds
-                double framePTS = videoSegment->videoData->frame->pts *
+                // Calculate the frame's presentation timestamp in frames (frame index)
+                double framePTS = videoSegment->videoData->frame->pts * 
                     av_q2d(videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base);
 
+                // Convert framePTS to frames
+                framePTS = framePTS * videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->r_frame_rate.num /
+                    videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->r_frame_rate.den;
+
+                // Calculate the frame duration based on the video's native frame rate (e.g., 24 fps video)
+                double videoFrameDuration = 1.0 / videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->r_frame_rate.num;
+
+                // Calculate the target frame duration based on the target playback fps (e.g., 60 fps)
+                double targetFrameDuration = 1.0 / m_timeline->getFPS(); // Target frame rate (e.g., 60 fps)
+
+                // Adjust the frame's timing based on the target frame rate
+                double adjustedFramePTS = framePTS * (videoFrameDuration / targetFrameDuration);
+
+                Uint32 currentPlaybackFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
+
                 // Check if the frame is too late
-                double currentPlaybackTime = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
-                if (framePTS < currentPlaybackTime - m_frameDropThreshold) {
+                if (adjustedFramePTS < currentPlaybackFrame - m_frameDropThreshold) {
                     av_packet_unref(&packet);
                     continue; // Skip this frame
+                }
+
+                // Check if the frame is too early
+                if (adjustedFramePTS > currentPlaybackFrame) {
+                    double frameTimeDifference = adjustedFramePTS - currentPlaybackFrame;
+                    double targetDelayTime = frameTimeDifference * targetFrameDuration; // Time delay in seconds
+                    SDL_Delay(static_cast<Uint32>(targetDelayTime * 1000));  // Delay in milliseconds
                 }
 
                 // Allocate buffer for rgbFrame if not already done
@@ -224,17 +246,16 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
         return;
     }
 
-    double startTime = audioSegment->sourceStartTime;
-    double endTime = startTime + audioSegment->duration;
+    Uint32 startFrameIndex = audioSegment->sourceStartTime;
+    Uint32 endFrameIndex = startFrameIndex + audioSegment->duration;
 
     // Seek to the beginning of the segment if this is a new segment
     if (m_lastAudioSegment != audioSegment) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->streamIndex]->time_base;
-        int64_t targetTimestamp = (int64_t)(startTime / av_q2d(timeBase));
 
-        if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "Error seeking audio to timestamp: " << startTime << " seconds." << std::endl;
+        if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->streamIndex, startFrameIndex, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking audio to frame index: " << startFrameIndex << std::endl;
             return;
         }
 
@@ -262,8 +283,10 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
                 if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                 if (ret < 0) return;
 
-                double currentTime = audioSegment->audioData->frame->pts * av_q2d(audioSegment->audioData->formatContext->streams[audioSegment->audioData->streamIndex]->time_base);
-                if (currentTime > endTime) break;
+                // Calculate the frame's presentation timestamp (in frame index)
+                int64_t currentFrameIndex = audioSegment->audioData->frame->pts;
+
+                if (currentFrameIndex > endFrameIndex) break;
 
                 // Check if the audio frame is valid
                 if (!audioSegment->audioData->frame || !audioSegment->audioData->frame->data[0]) {
@@ -296,7 +319,7 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
                 }
 
                 // Check if the audio segment duration is reached
-                if (currentTime >= endTime) {
+                if (currentFrameIndex >= endFrameIndex) {
                     SDL_PauseAudioDevice(m_audioDevice, 1); // Pause audio if end of segment is reached
                     break;
                 }
