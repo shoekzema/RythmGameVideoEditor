@@ -30,8 +30,8 @@ void Timeline::render() {
             getFont(), formatTime(timeLabel, m_fps).c_str(),
             -1, m_timeLabelColor);
 
-        SDL_RenderDrawLine(p_renderer, xPos, rect.h + textRect.h, xPos, rect.h + m_topBarheight); // Big label
-        SDL_RenderDrawLine(p_renderer, xPos + m_timeLabelInterval / 2, rect.h + textRect.h * 1.5, xPos + m_timeLabelInterval / 2, rect.h + m_topBarheight); // Small halfway label
+        SDL_RenderDrawLine(p_renderer, xPos, rect.y + textRect.h, xPos, rect.y + m_topBarheight); // Big label
+        SDL_RenderDrawLine(p_renderer, xPos + m_timeLabelInterval / 2, rect.y + textRect.h * 1.5, xPos + m_timeLabelInterval / 2, rect.y + m_topBarheight); // Small halfway label
 
         xPos += m_timeLabelInterval;
         timeLabel += m_zoom;
