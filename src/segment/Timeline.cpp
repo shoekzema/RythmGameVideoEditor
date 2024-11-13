@@ -23,7 +23,7 @@ void Timeline::render() {
     // Draw the top bar
     int xPos = rect.x + m_trackStartXPos;
     int yPos = rect.y;
-    Uint32 timeLabel = 0;
+    Uint32 timeLabel = m_scrollOffset;
     SDL_SetRenderDrawColor(p_renderer, m_timeLabelColor.r, m_timeLabelColor.g, m_timeLabelColor.b, m_timeLabelColor.a);
     while (xPos < rect.x + rect.w) {
         SDL_Rect textRect = renderTextWithCustomSpacing(p_renderer, xPos, yPos,
@@ -64,16 +64,26 @@ void Timeline::render() {
 
         // Draw all video segments on the track
         for (VideoSegment& segment : m_videoTracks[i]) {
-            int xPos = videoTrackRect.x + segment.timelinePosition * m_timeLabelInterval / m_zoom;
-            int width = segment.timelineDuration * m_timeLabelInterval / m_zoom;
+            // If fully outside render view, do not render
+            if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
+
+            Uint32 xPos = segment.timelinePosition - m_scrollOffset;
+            int diff = 0;
+            if (m_scrollOffset > segment.timelinePosition) {
+                xPos = 0; // If xPos should be negative, make it 0
+                diff = m_scrollOffset - segment.timelinePosition; // keep the difference to subtract it from the width
+            }
+
+            int renderXPos = videoTrackRect.x + xPos * m_timeLabelInterval / m_zoom;
+            int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
             // Draw the outlines
-            SDL_Rect outlineRect = { xPos - 1, videoTrackRect.y - 1, width + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { renderXPos - 1, videoTrackRect.y - 1, renderWidth + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { xPos + 1, videoTrackRect.y + 1, width - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { renderXPos + 1, videoTrackRect.y + 1, renderWidth - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_videoTrackSegmentColor.r, m_videoTrackSegmentColor.g, m_videoTrackSegmentColor.b, m_videoTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
@@ -90,10 +100,10 @@ void Timeline::render() {
         SDL_Rect audioTrackDataRect = { rect.x, trackYpos + 1, m_trackDataWidth, m_trackHeight };
         SDL_SetRenderDrawColor(p_renderer, m_audioTrackDataColor.r, m_audioTrackDataColor.g, m_audioTrackDataColor.b, m_audioTrackDataColor.a);
         SDL_RenderFillRect(p_renderer, &audioTrackDataRect);
-        renderText(p_renderer, 
+        renderText(p_renderer,
             audioTrackDataRect.x + audioTrackDataRect.w / 4, // At 1/4 of the left of the track data Rect
             audioTrackDataRect.y + audioTrackDataRect.h / 4, // At 1/4 of the top of the track data Rect
-            getFontBig(), 
+            getFontBig(),
             ("A" + std::to_string(i)).c_str());
 
         // Draw the track background
@@ -103,26 +113,39 @@ void Timeline::render() {
 
         // Draw all audio segments on the track
         for (AudioSegment& segment : m_audioTracks[i]) {
-            int xPos = audioTrackRect.x + segment.timelinePosition * m_timeLabelInterval / m_zoom;
-            int width = segment.timelineDuration * m_timeLabelInterval / m_zoom;
+            // If fully outside render view, do not render
+            if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
+
+            Uint32 xPos = segment.timelinePosition - m_scrollOffset;
+            int diff = 0;
+            if (m_scrollOffset > segment.timelinePosition) {
+                xPos = 0; // If xPos should be negative, make it 0
+                diff = m_scrollOffset - segment.timelinePosition; // keep the difference to subtract it from the width
+            }
+
+            int renderXPos = audioTrackRect.x + xPos * m_timeLabelInterval / m_zoom;
+            int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
             // Draw the outlines
-            SDL_Rect outlineRect = { xPos - 1, audioTrackRect.y - 1, width + 2, m_trackHeight + 2 };
+            SDL_Rect outlineRect = { renderXPos - 1, audioTrackRect.y - 1, renderWidth + 2, m_trackHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
             SDL_RenderFillRect(p_renderer, &outlineRect);
 
             // Draw the inside BG
-            SDL_Rect segmentRect = { xPos + 1, audioTrackRect.y + 1, width - 2, m_trackHeight - 2 };
+            SDL_Rect segmentRect = { renderXPos + 1, audioTrackRect.y + 1, renderWidth - 2, m_trackHeight - 2 };
             SDL_SetRenderDrawColor(p_renderer, m_audioTrackSegmentColor.r, m_audioTrackSegmentColor.g, m_audioTrackSegmentColor.b, m_audioTrackSegmentColor.a);
             SDL_RenderFillRect(p_renderer, &segmentRect);
         }
         trackYpos += m_rowHeight;
     }
 
-    // Draw the current time indicator (a vertical line)
-    int indicatorX = m_trackStartXPos + m_currentTime * m_timeLabelInterval / m_zoom;
-    SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
-    SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, trackYpos);
+    // If the currentTime is higher than the scroll offset (leftmost frame)
+    if (m_scrollOffset <= m_currentTime) {
+        // Draw the current time indicator (a vertical line)
+        int indicatorX = m_trackStartXPos + (m_currentTime - m_scrollOffset) * m_timeLabelInterval / m_zoom;
+        SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
+        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, trackYpos);
+    }
 }
 
 void Timeline::update(int x, int y, int w, int h) {
@@ -143,6 +166,39 @@ void Timeline::handleEvent(SDL_Event& event) {
                 m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000);
             }
         }
+        break;
+    case SDL_MOUSEWHEEL:
+        // Get the current modifier state (Shift, Ctrl, etc.)
+        SDL_Keymod mod = SDL_GetModState();
+
+        // Normalize event.wheel.y to -1, 0, or 1
+        int scrollDirection = (event.wheel.y > 0) ? 1 : (event.wheel.y < 0) ? -1 : 0;
+
+        if (mod & KMOD_CTRL) { // Control is held down
+            // Zooming in
+            if (scrollDirection > 0 && m_zoom > 2) {
+                m_zoom /= 2;
+            }
+            // Zooming out
+            if (scrollDirection < 0 && m_zoom < UINT16_MAX / 2) {
+                m_zoom *= 2;
+            }
+        }
+        else if (mod & KMOD_SHIFT) { // Shift is held down
+            // Vertical scrolling
+
+        }
+        else {
+            // Horizontal scrolling
+            if ((int32_t)m_scrollOffset < scrollDirection * (int32_t)m_zoom) {
+                // Cannot go into negative -> make zero instead.
+                m_scrollOffset = 0;
+            }
+            else {
+                m_scrollOffset -= scrollDirection * m_zoom;
+            }
+        }
+        break;
     }
 }
 

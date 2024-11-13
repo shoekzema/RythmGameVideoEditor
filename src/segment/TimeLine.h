@@ -71,6 +71,8 @@ private:
     int m_fps = 60; // Target frames per second to render in.
 
     Uint32 m_zoom = 512; // The amount to zoom out (minimum = 2, meaning a distance of 2 frame between timeline labels)
+    Uint32 m_scrollOffset = 0; // The leftmost frame on screen
+    int m_scrollSpeed = 10;
     int m_timeLabelInterval = 70;
     int m_topBarheight = 30;
     int m_trackDataWidth = 100;
