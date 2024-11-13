@@ -10,6 +10,7 @@ struct VideoSegment {
     Uint32 duration;           // Duration of this segment in its own fps
     Uint32 timelinePosition;   // Position in the overall timeline
     Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
+    AVRational fps;            // Source frames per second as an AVRational (use av_q2d to convert to double)
 };
 
 // Segment in the timeline with a pointer to the corresponding audio data and data on what of that audio is to be played.

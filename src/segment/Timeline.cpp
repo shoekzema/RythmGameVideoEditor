@@ -163,10 +163,64 @@ void Timeline::handleEvent(SDL_Event& event) {
             }
             else {
                 m_playing = true;
-                m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000);
+                m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000 / m_fps);
             }
         }
         break;
+
+    case SDL_MOUSEBUTTONDOWN:
+        SDL_Point mousePoint; mousePoint = { event.button.x, event.button.y };
+        
+        // If clicked outside this segment, do nothing
+        if (!SDL_PointInRect(&mousePoint, &rect)) break;
+
+        // If clicked in the left column, do nothing
+        if (mousePoint.x < m_trackStartXPos) break;
+
+        Uint32 selectedFrame; selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+
+        VideoSegment* selectedVideoSegment; selectedVideoSegment = nullptr;
+        AudioSegment* selectedAudioSegment; selectedAudioSegment = nullptr;
+        int trackID; trackID = 0;
+        // Iterate over video tracks
+        for (auto& track : m_videoTracks) {
+            // If inside this track
+            if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * trackID && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (trackID + 1)) {
+                // Iterate over video segments to find which one is active at currentTime
+                for (VideoSegment& segment : track) {
+                    if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
+                        selectedVideoSegment = &segment;
+                        break;
+                    }
+                }
+            }
+            trackID++;
+            if (selectedVideoSegment) break;
+        }
+        if (selectedVideoSegment) break; // If we selected a video segment, do nothing FOR NOW ... TODO: select it
+        // Iterate over audio tracks
+        for (auto& track : m_audioTracks) {
+            // If inside this track
+            if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * trackID && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (trackID + 1)) {
+                // Iterate over video segments to find which one is active at currentTime
+                for (AudioSegment& segment : track) {
+                    if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
+                        selectedAudioSegment = &segment;
+                        break;
+                    }
+                }
+            }
+            trackID++;
+            if (selectedAudioSegment) break;
+        }
+        if (selectedAudioSegment) break; // If we selected an audio segment, do nothing FOR NOW ... TODO: select it
+
+        // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
+        m_playing = false;
+        setCurrentTime(selectedFrame);
+
+        break;
+
     case SDL_MOUSEWHEEL:
         // Get the current modifier state (Shift, Ctrl, etc.)
         SDL_Keymod mod = SDL_GetModState();
@@ -212,7 +266,7 @@ VideoSegment* Timeline::getCurrentVideoSegment() {
         // Iterate over video segments to find which one is active at currentTime
         for (VideoSegment& segment : track) {
             if (currentTime >= segment.timelinePosition &&
-                currentTime <= segment.timelinePosition + segment.duration) {
+                currentTime <= segment.timelinePosition + segment.timelineDuration) {
                 return &segment;  // Return the active video segment
             }
         }
@@ -230,7 +284,7 @@ AudioSegment* Timeline::getCurrentAudioSegment() {
         // Iterate over audio segments to find which one is active at currentTime
         for (AudioSegment& segment : track) {
             if (currentTime >= segment.timelinePosition &&
-                currentTime <= segment.timelinePosition + segment.duration) {
+                currentTime <= segment.timelinePosition + segment.timelineDuration) {
                 return &segment;  // Return the active audio segment
             }
         }
@@ -262,6 +316,7 @@ Uint32 Timeline::getCurrentTime() {
 
 void Timeline::setCurrentTime(Uint32 time) {
     m_currentTime = time;
+    m_startPlayTime = time;
 }
 
 Segment* Timeline::findTypeImpl(const std::type_info& type) {
@@ -287,7 +342,8 @@ void Timeline::addVideoSegment(VideoData* data) {
         .sourceStartTime = 0,
         .duration = data->getVideoDurationInFrames(),
         .timelinePosition = position,
-        .timelineDuration = data->getVideoDurationInFrames(m_fps)
+        .timelineDuration = data->getVideoDurationInFrames(m_fps),
+        .fps = data->getFPS()
     };
     m_videoTracks[0].push_back(videoSegment);
 }

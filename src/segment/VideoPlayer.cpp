@@ -151,11 +151,19 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
     if (m_lastVideoSegment != videoSegment) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base;
+        
+        Uint32 targetFrame = videoSegment->sourceStartTime;
+        Uint32 currentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
+        // Convert the desired frame number to a timestamp
+        int64_t targetTimestamp  = av_rescale_q(targetFrame,  videoSegment->fps,          timeBase);
+        int64_t currentTimestamp = av_rescale_q(currentFrame, { 1, m_timeline->getFPS()}, timeBase);
 
-        Uint32 targetFrameIndex = videoSegment->sourceStartTime;
+        if (currentTimestamp > targetTimestamp) {
+            targetTimestamp = currentTimestamp;
+        }
 
-        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetFrameIndex, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "Error seeking video to frame index: " << targetFrameIndex << std::endl;
+        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetTimestamp, AVSEEK_FLAG_FRAME) < 0) {
+            std::cerr << "Error seeking video to timestamp: " << targetTimestamp << std::endl;
             return false;
         }
 
@@ -254,8 +262,17 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->streamIndex]->time_base;
 
-        if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->streamIndex, startFrameIndex, AVSEEK_FLAG_BACKWARD) < 0) {
-            std::cerr << "Error seeking audio to frame index: " << startFrameIndex << std::endl;
+        Uint32 currentFrame = m_timeline->getCurrentTime() - audioSegment->timelinePosition;
+        // Convert the desired frame number to a timestamp
+        int64_t startTimestamp   = av_rescale_q(startFrameIndex, { 1, m_timeline->getFPS() }, timeBase);
+        int64_t currentTimestamp = av_rescale_q(currentFrame,    { 1, m_timeline->getFPS() }, timeBase);
+
+        if (currentTimestamp > startTimestamp) {
+            startTimestamp = currentTimestamp;
+        }
+
+        if (av_seek_frame(audioSegment->audioData->formatContext, audioSegment->audioData->streamIndex, startTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking audio to timestamp: " << startTimestamp << std::endl;
             return;
         }
 

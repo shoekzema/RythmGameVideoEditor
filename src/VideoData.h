@@ -43,6 +43,11 @@ struct VideoData {
         }
     }
 
+    // Get the videos framerate as an AVRational (use av_q2d to convert to double)
+    AVRational getFPS() {
+        return formatContext->streams[streamIndex]->avg_frame_rate;
+    }
+
     // Get the video duration in seconds
     double getVideoDuration() {
         if (!formatContext) return 0.0; // Return 0 if the format context is invalid
@@ -59,10 +64,7 @@ struct VideoData {
         if (!formatContext) return 0.0; // Return 0 if the format context is invalid
 
         double durationInSeconds = getVideoDuration();
-
-        // Get the frame rate of the video stream
-        AVRational frameRate = formatContext->streams[streamIndex]->avg_frame_rate;
-        double framesPerSecond = av_q2d(frameRate);
+        double framesPerSecond = av_q2d(getFPS());
 
         // Calculate the total number of frames
         return static_cast<Uint32>(durationInSeconds * framesPerSecond);
