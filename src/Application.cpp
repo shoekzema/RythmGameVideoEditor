@@ -42,7 +42,7 @@ bool Application::init() {
     m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 13);
     if (!m_font) {
         printf("Failed to load font: %s\n", TTF_GetError());
-        return -1;
+        return false;
     }
     setFont(m_font);
 
@@ -111,8 +111,7 @@ void Application::handleEvents() {
                 Timeline* timeline = m_rootSegment->findType<Timeline>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
-                    if (m_draggedAsset->videoData) timeline->addVideoSegment(m_draggedAsset->videoData);
-                    if (m_draggedAsset->audioData) timeline->addAudioSegment(m_draggedAsset->audioData);
+                    timeline->addAssetSegments(m_draggedAsset, mouseButton.x, mouseButton.y);
                 }
 
                 // Reset the dragging state

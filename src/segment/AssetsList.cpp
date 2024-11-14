@@ -76,11 +76,19 @@ void AssetsList::update(int x, int y, int w, int h) {
 }
 
 void AssetsList::handleEvent(SDL_Event& event) {
+    static bool mouseInThisSegment = false;
+
     switch (event.type) {
-    case SDL_MOUSEWHEEL:
+    case SDL_MOUSEMOTION: {
+        SDL_Point mousePoint = { event.motion.x, event.motion.y };
+        mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+        break;
+    }
+    case SDL_MOUSEWHEEL: {
+        if (!mouseInThisSegment) break;
+
         // Check if scrolling neccesary
-        int assetListLength;
-        assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+        int assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
         if (assetListLength <= rect.h) break;
 
         // Scroll
@@ -90,8 +98,10 @@ void AssetsList::handleEvent(SDL_Event& event) {
         if (m_scrollOffset < 0) m_scrollOffset = 0;
         if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
         break;
-
+    }
     case SDL_DROPFILE: {
+        if (!mouseInThisSegment) break;
+
         const char* droppedFile = event.drop.file;
         loadFile(droppedFile);
         SDL_free(event.drop.file);

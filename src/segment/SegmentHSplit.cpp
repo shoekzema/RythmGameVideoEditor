@@ -46,23 +46,25 @@ void SegmentHSplit::update(int x, int y, int w, int h) {
 }
 
 void SegmentHSplit::handleEvent(SDL_Event& event) {
-    if (event.type == SDL_MOUSEBUTTONDOWN) {
+    switch (event.type) {
+    case SDL_MOUSEBUTTONDOWN: {
         SDL_Point mousePoint = { event.button.x, event.button.y };
         if (SDL_PointInRect(&mousePoint, &m_divider)) {
             m_draggingDivider = true;
         }
+        break;
     }
-    else if (event.type == SDL_MOUSEMOTION) {
+    case SDL_MOUSEMOTION: {
         SDL_Point mouseMotion = { event.motion.x, event.motion.y };
 
         // If not in this Segment, we ignore it 
         if (SDL_PointInRect(&mouseMotion, &rect)) {
             if (m_draggingDivider) {
                 // Resize the segments dynamically by dragging the divider
-                int newMiddle = std::max(m_dividerThickness/2, std::min(event.motion.y, appWindowSizeY - m_dividerThickness/2)) - rect.y - m_divider.h / 2;
+                int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.y, appWindowSizeY - m_dividerThickness / 2)) - rect.y - m_divider.h / 2;
                 m_divider.y = newMiddle;
-                m_topSegment   ->update(m_topSegment   ->rect.x, m_topSegment->rect.y, m_topSegment   ->rect.w, newMiddle);
-                m_bottomSegment->update(m_bottomSegment->rect.x, newMiddle,          m_bottomSegment->rect.w, rect.h - newMiddle);
+                m_topSegment->update(m_topSegment->rect.x, m_topSegment->rect.y, m_topSegment->rect.w, newMiddle);
+                m_bottomSegment->update(m_bottomSegment->rect.x, newMiddle, m_bottomSegment->rect.w, rect.h - newMiddle);
             }
             else if (SDL_PointInRect(&mouseMotion, &m_divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS));
@@ -71,10 +73,13 @@ void SegmentHSplit::handleEvent(SDL_Event& event) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW));
             }
         }
+        break;
     }
-    else if (event.type == SDL_MOUSEBUTTONUP) {
+    case SDL_MOUSEBUTTONUP: {
         SDL_Point mousePoint = { event.button.x, event.button.y };
         m_draggingDivider = false;
+        break;
+    }
     }
 
     m_topSegment->handleEvent(event);

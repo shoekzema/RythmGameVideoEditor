@@ -61,7 +61,7 @@ struct VideoData {
 
     // Get the video duration in frames
     Uint32 getVideoDurationInFrames() {
-        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+        if (!formatContext) return 0; // Return 0 if the format context is invalid
 
         double durationInSeconds = getVideoDuration();
         double framesPerSecond = av_q2d(getFPS());
@@ -72,7 +72,7 @@ struct VideoData {
 
     // Get the video duration in frames with a target fps
     Uint32 getVideoDurationInFrames(int targetFramerate) {
-        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+        if (!formatContext) return 0; // Return 0 if the format context is invalid
 
         double durationInSeconds = getVideoDuration();
 
@@ -124,7 +124,7 @@ struct AudioData {
 
     // Get the audio duration in frames
     Uint32 getAudioDurationInFrames() {
-        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+        if (!formatContext) return 0; // Return 0 if the format context is invalid
 
         double durationInSeconds = getAudioDuration();
 
@@ -143,7 +143,7 @@ struct AudioData {
 
     // Get the audio duration in frames with a target fps
     Uint32 getAudioDurationInFrames(int targetFramerate) {
-        if (!formatContext) return 0.0; // Return 0 if the format context is invalid
+        if (!formatContext) return 0; // Return 0 if the format context is invalid
 
         double durationInSeconds = getAudioDuration();
 

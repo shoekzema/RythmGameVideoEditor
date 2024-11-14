@@ -153,8 +153,15 @@ void Timeline::update(int x, int y, int w, int h) {
 }
 
 void Timeline::handleEvent(SDL_Event& event) {
+    static bool mouseInThisSegment = false;
+
     switch (event.type) {
-    case SDL_KEYDOWN:
+    case SDL_MOUSEMOTION: {
+        SDL_Point mousePoint = { event.motion.x, event.motion.y };
+        mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+        break;
+    }
+    case SDL_KEYDOWN: {
         // Check if the key pressed was the spacebar
         if (event.key.keysym.sym == SDLK_SPACE) {
             if (m_playing) {
@@ -167,10 +174,10 @@ void Timeline::handleEvent(SDL_Event& event) {
             }
         }
         break;
+    }
+    case SDL_MOUSEBUTTONDOWN: {
+        SDL_Point mousePoint = { event.button.x, event.button.y };
 
-    case SDL_MOUSEBUTTONDOWN:
-        SDL_Point mousePoint; mousePoint = { event.button.x, event.button.y };
-        
         // If clicked outside this segment, do nothing
         if (!SDL_PointInRect(&mousePoint, &rect)) break;
 
@@ -179,40 +186,10 @@ void Timeline::handleEvent(SDL_Event& event) {
 
         Uint32 selectedFrame; selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-        VideoSegment* selectedVideoSegment; selectedVideoSegment = nullptr;
-        AudioSegment* selectedAudioSegment; selectedAudioSegment = nullptr;
-        int trackID; trackID = 0;
-        // Iterate over video tracks
-        for (auto& track : m_videoTracks) {
-            // If inside this track
-            if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * trackID && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (trackID + 1)) {
-                // Iterate over video segments to find which one is active at currentTime
-                for (VideoSegment& segment : track) {
-                    if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
-                        selectedVideoSegment = &segment;
-                        break;
-                    }
-                }
-            }
-            trackID++;
-            if (selectedVideoSegment) break;
-        }
+        VideoSegment* selectedVideoSegment = getVideoSegmentAtPos(mousePoint.x, mousePoint.y);
+        AudioSegment* selectedAudioSegment = getAudioSegmentAtPos(mousePoint.x, mousePoint.y);
+
         if (selectedVideoSegment) break; // If we selected a video segment, do nothing FOR NOW ... TODO: select it
-        // Iterate over audio tracks
-        for (auto& track : m_audioTracks) {
-            // If inside this track
-            if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * trackID && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (trackID + 1)) {
-                // Iterate over video segments to find which one is active at currentTime
-                for (AudioSegment& segment : track) {
-                    if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
-                        selectedAudioSegment = &segment;
-                        break;
-                    }
-                }
-            }
-            trackID++;
-            if (selectedAudioSegment) break;
-        }
         if (selectedAudioSegment) break; // If we selected an audio segment, do nothing FOR NOW ... TODO: select it
 
         // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
@@ -220,8 +197,10 @@ void Timeline::handleEvent(SDL_Event& event) {
         setCurrentTime(selectedFrame);
 
         break;
+    }
+    case SDL_MOUSEWHEEL: {
+        if (!mouseInThisSegment) break;
 
-    case SDL_MOUSEWHEEL:
         // Get the current modifier state (Shift, Ctrl, etc.)
         SDL_Keymod mod = SDL_GetModState();
 
@@ -254,6 +233,43 @@ void Timeline::handleEvent(SDL_Event& event) {
         }
         break;
     }
+    }
+}
+
+VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
+    Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+
+    // Iterate over video tracks
+    for (int i = 0; i < m_videoTracks.size(); i++) {
+        // If inside this track
+        if (y >= rect.y + m_topBarheight + m_trackHeight * i && y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
+            // Iterate over video segments to find which one is active at currentTime
+            for (VideoSegment& segment : m_videoTracks[i]) {
+                if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
+                    return &segment;
+                }
+            }
+        }
+    }
+    return nullptr;
+}
+
+AudioSegment* Timeline::getAudioSegmentAtPos(int x, int y) {
+    Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+
+    // Iterate over audio tracks
+    for (int i = 0; i < m_audioTracks.size(); i++) {
+        // If inside this track
+        if (y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTracks.size() + i) && y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTracks.size() + i + 1)) {
+            // Iterate over video segments to find which one is active at currentTime
+            for (AudioSegment& segment : m_audioTracks[i]) {
+                if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
+                    return &segment;
+                }
+            }
+        }
+    }
+    return nullptr;
 }
 
 VideoSegment* Timeline::getCurrentVideoSegment() {
@@ -326,29 +342,37 @@ Segment* Timeline::findTypeImpl(const std::type_info& type) {
     return nullptr;
 }
 
-void Timeline::addVideoSegment(VideoData* data) {
-    if (m_videoTracks.empty()) return;
+void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
+    // In case the asset has video
+    if (data->videoData) {
+        if (m_videoTracks.empty()) return;
+        if (getVideoSegmentAtPos(mouseX, mouseY)) return;
 
-    Uint32 position = 0;
-    // Get the x-position on the right of the last video segment
-    if (!m_videoTracks[0].empty()) {
-        VideoSegment lastSegment = m_videoTracks[0].back();
-        position = lastSegment.timelinePosition + lastSegment.timelineDuration;
+        // If the asset also has audio, check if both can be placed
+        if (data->audioData) {
+            if (m_audioTracks.empty()) return;
+            if (getAudioSegmentAtPos(mouseX, mouseY)) return;
+        }
+
+        Uint32 position = 0;
+        // Get the x-position on the right of the last video segment
+        if (!m_videoTracks[0].empty()) {
+            VideoSegment lastSegment = m_videoTracks[0].back();
+            position = lastSegment.timelinePosition + lastSegment.timelineDuration;
+        }
+
+        // Create and add a new videoSegment
+        VideoSegment videoSegment = {
+            .videoData = data->videoData,
+            .sourceStartTime = 0,
+            .duration = data->videoData->getVideoDurationInFrames(),
+            .timelinePosition = position,
+            .timelineDuration = data->videoData->getVideoDurationInFrames(m_fps),
+            .fps = data->videoData->getFPS()
+        };
+        m_videoTracks[0].push_back(videoSegment);
     }
-
-    // Create and add a new videoSegment
-    VideoSegment videoSegment = {
-        .videoData = data,
-        .sourceStartTime = 0,
-        .duration = data->getVideoDurationInFrames(),
-        .timelinePosition = position,
-        .timelineDuration = data->getVideoDurationInFrames(m_fps),
-        .fps = data->getFPS()
-    };
-    m_videoTracks[0].push_back(videoSegment);
-}
-
-void Timeline::addAudioSegment(AudioData* data) {
+    // In case the asset has audio
     if (m_audioTracks.empty()) return;
 
     Uint32 position = 0;
@@ -360,11 +384,11 @@ void Timeline::addAudioSegment(AudioData* data) {
 
     // Create and add a new audioSegment
     AudioSegment audioSegment = {
-        .audioData = data,
+        .audioData = data->audioData,
         .sourceStartTime = 0,
-        .duration = data->getAudioDurationInFrames(),
+        .duration = data->audioData->getAudioDurationInFrames(),
         .timelinePosition = position,
-        .timelineDuration = data->getAudioDurationInFrames(m_fps)
+        .timelineDuration = data->audioData->getAudioDurationInFrames(m_fps)
     };
     m_audioTracks[0].push_back(audioSegment);
 }

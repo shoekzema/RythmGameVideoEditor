@@ -57,17 +57,17 @@ public:
     // Set the current time (in seconds) in the timeline
     void setCurrentTime(Uint32 time);
 
-    // Add a video segment to the timeline video track
-    void addVideoSegment(VideoData* data);
-
-    // Add an audio segment to the timeline audio track
-    void addAudioSegment(AudioData* data);
+    // Add a video and/or audio segment to the timeline at the mouse position
+    void addAssetSegments(AssetData* data, int mouseX, int mouseY);
+private:
+    VideoSegment* getVideoSegmentAtPos(int x, int y);
+    AudioSegment* getAudioSegmentAtPos(int x, int y);
 private:
     bool m_playing = false;
     std::vector<std::vector<VideoSegment>> m_videoTracks; // List of all videoTracks with for every videoTrack a list of all VideoSegments on it.
     std::vector<std::vector<AudioSegment>> m_audioTracks; // List of all audioTracks with for every audioTrack a list of all AudioSegments on it.
     Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
-    Uint32 m_startPlayTime = 0.0; // The time in the timeline where playing starts from (in frames)
+    Uint32 m_startPlayTime = 0; // The time in the timeline where playing starts from (in frames)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
     int m_fps = 60; // Target frames per second to render in.
 
