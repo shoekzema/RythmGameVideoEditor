@@ -11,6 +11,13 @@ struct VideoSegment {
     Uint32 timelinePosition;   // Position in the overall timeline
     Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
     AVRational fps;            // Source frames per second as an AVRational (use av_q2d to convert to double)
+
+    // Checks if two VideoSegments on the same track overlap
+    bool overlapsWith(VideoSegment* other) {
+        if (this->timelinePosition  + this->timelineDuration  < other->timelinePosition) return false;
+        if (other->timelinePosition + other->timelineDuration < this->timelinePosition)  return false;
+        return true;
+    }
 };
 
 // Segment in the timeline with a pointer to the corresponding audio data and data on what of that audio is to be played.
@@ -20,6 +27,13 @@ struct AudioSegment {
     Uint32 duration;           // Duration of this segment
     Uint32 timelinePosition;   // Position in the overall timeline
     Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
+
+    // Checks if two VideoSegments on the same track overlap
+    bool overlapsWith(AudioSegment* other) {
+        if (this->timelinePosition  + this->timelineDuration  < other->timelinePosition) return false;
+        if (other->timelinePosition + other->timelineDuration < this->timelinePosition)  return false;
+        return true;
+    }
 };
 
 /**
@@ -62,6 +76,8 @@ public:
 private:
     VideoSegment* getVideoSegmentAtPos(int x, int y);
     AudioSegment* getAudioSegmentAtPos(int x, int y);
+    bool isCollidingWithOtherSegment(VideoSegment* videoSegment, int trackID);
+    bool isCollidingWithOtherSegment(AudioSegment* audioSegment, int trackID);
 private:
     bool m_playing = false;
     std::vector<std::vector<VideoSegment>> m_videoTracks; // List of all videoTracks with for every videoTrack a list of all VideoSegments on it.

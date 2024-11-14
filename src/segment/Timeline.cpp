@@ -184,7 +184,7 @@ void Timeline::handleEvent(SDL_Event& event) {
         // If clicked in the left column, do nothing
         if (mousePoint.x < m_trackStartXPos) break;
 
-        Uint32 selectedFrame; selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+        Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
         VideoSegment* selectedVideoSegment = getVideoSegmentAtPos(mousePoint.x, mousePoint.y);
         AudioSegment* selectedAudioSegment = getAudioSegmentAtPos(mousePoint.x, mousePoint.y);
@@ -272,6 +272,22 @@ AudioSegment* Timeline::getAudioSegmentAtPos(int x, int y) {
     return nullptr;
 }
 
+bool Timeline::isCollidingWithOtherSegment(VideoSegment* videoSegment, int trackID) {
+    // Iterate over video segments to find which one overlaps with the input segment
+    for (VideoSegment& segment : m_videoTracks[trackID]) {
+        if (videoSegment->overlapsWith(&segment)) return true;
+    }
+    return false;
+}
+
+bool Timeline::isCollidingWithOtherSegment(AudioSegment* audioSegment, int trackID) {
+    // Iterate over video segments to find which one overlaps with the input segment
+    for (AudioSegment& segment : m_audioTracks[trackID]) {
+        if (audioSegment->overlapsWith(&segment)) return true;
+    }
+    return false;
+}
+
 VideoSegment* Timeline::getCurrentVideoSegment() {
     if (m_videoTracks.empty()) return nullptr;
 
@@ -343,52 +359,77 @@ Segment* Timeline::findTypeImpl(const std::type_info& type) {
 }
 
 void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
+    SDL_Point mousePoint = { mouseX, mouseY };
+
+    // If outside this segment, do nothing
+    if (!SDL_PointInRect(&mousePoint, &rect)) return;
+
+    // If in the left column, do nothing
+    if (mousePoint.x < m_trackStartXPos) return;
+
+    Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+
+    int trackID = 0; // If video -> videoTrackID   |   If audio -> audioTrackID   |   If video with audio -> videoTrackID == audioTrackID
+    // Iterate over video and audio tracks to find the trackID
+    for (int i = 0; i < m_videoTracks.size(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
+            trackID = i;
+        }
+    }
+    // Iterate over audio tracks
+    for (int i = 0; i < m_audioTracks.size(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTracks.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTracks.size() + i + 1)) {
+            trackID = i;
+        }
+    }
+
+    VideoSegment videoSegment;
+    AudioSegment audioSegment;
+
     // In case the asset has video
     if (data->videoData) {
         if (m_videoTracks.empty()) return;
-        if (getVideoSegmentAtPos(mouseX, mouseY)) return;
 
         // If the asset also has audio, check if both can be placed
         if (data->audioData) {
             if (m_audioTracks.empty()) return;
-            if (getAudioSegmentAtPos(mouseX, mouseY)) return;
-        }
-
-        Uint32 position = 0;
-        // Get the x-position on the right of the last video segment
-        if (!m_videoTracks[0].empty()) {
-            VideoSegment lastSegment = m_videoTracks[0].back();
-            position = lastSegment.timelinePosition + lastSegment.timelineDuration;
         }
 
         // Create and add a new videoSegment
-        VideoSegment videoSegment = {
+        videoSegment = {
             .videoData = data->videoData,
             .sourceStartTime = 0,
             .duration = data->videoData->getVideoDurationInFrames(),
-            .timelinePosition = position,
+            .timelinePosition = selectedFrame,
             .timelineDuration = data->videoData->getVideoDurationInFrames(m_fps),
             .fps = data->videoData->getFPS()
         };
-        m_videoTracks[0].push_back(videoSegment);
+
+        // Cannot drop here, because it would overlap with another segment
+        if (isCollidingWithOtherSegment(&videoSegment, trackID)) return;
     }
     // In case the asset has audio
-    if (m_audioTracks.empty()) return;
+    if (data->audioData) {
+        if (m_audioTracks.empty()) return;
 
-    Uint32 position = 0;
-    // Get the x-position on the right of the last audio segment
-    if (!m_audioTracks[0].empty()) {
-        AudioSegment lastSegment = m_audioTracks[0].back();
-        position = lastSegment.timelinePosition + lastSegment.timelineDuration;
+        // Create and add a new audioSegment
+        audioSegment = {
+            .audioData = data->audioData,
+            .sourceStartTime = 0,
+            .duration = data->audioData->getAudioDurationInFrames(),
+            .timelinePosition = selectedFrame,
+            .timelineDuration = data->audioData->getAudioDurationInFrames(m_fps)
+        };
+
+        // Cannot drop here, because it would overlap with another segment
+        if (isCollidingWithOtherSegment(&audioSegment, trackID)) return;
     }
 
-    // Create and add a new audioSegment
-    AudioSegment audioSegment = {
-        .audioData = data->audioData,
-        .sourceStartTime = 0,
-        .duration = data->audioData->getAudioDurationInFrames(),
-        .timelinePosition = position,
-        .timelineDuration = data->audioData->getAudioDurationInFrames(m_fps)
-    };
-    m_audioTracks[0].push_back(audioSegment);
+    // If we reached here, then the new video segment and/or audio segment can be added
+    if (data->videoData) {
+        m_videoTracks[trackID].push_back(videoSegment);
+    }
+    if (data->audioData) {
+        m_audioTracks[trackID].push_back(audioSegment);
+    }
 }
