@@ -5,15 +5,17 @@
 
 // Segment in the timeline with a pointer to the corresponding video data and data on what of that video is to be played.
 struct VideoSegment {
-    VideoData* videoData;      // Reference to the video data
-    Uint32 sourceStartTime;    // Start time in the original video file
-    Uint32 duration;           // Duration of this segment in its own fps
-    Uint32 timelinePosition;   // Position in the overall timeline
-    Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
-    AVRational fps;            // Source frames per second as an AVRational (use av_q2d to convert to double)
+    VideoData* videoData;    // Reference to the video data
+    Uint32 sourceStartTime;  // Start time in the original video file
+    Uint32 duration;         // Duration of this segment in its own fps
+    Uint32 timelinePosition; // Position in the overall timeline
+    Uint32 timelineDuration; // Duration of this segment in the timeline's fps
+    AVRational fps;          // Source frames per second as an AVRational (use av_q2d to convert to double)
+    int trackID;             // The video track this segment is on
 
     // Checks if two VideoSegments on the same track overlap
     bool overlapsWith(VideoSegment* other) {
+        if (this->trackID != other->trackID) return false;
         if (this->timelinePosition  + this->timelineDuration  < other->timelinePosition) return false;
         if (other->timelinePosition + other->timelineDuration < this->timelinePosition)  return false;
         return true;
@@ -22,14 +24,16 @@ struct VideoSegment {
 
 // Segment in the timeline with a pointer to the corresponding audio data and data on what of that audio is to be played.
 struct AudioSegment {
-    AudioData* audioData;      // Reference to the audio data
-    Uint32 sourceStartTime;    // Start time in the original audio file
-    Uint32 duration;           // Duration of this segment
-    Uint32 timelinePosition;   // Position in the overall timeline
-    Uint32 timelineDuration;   // Duration of this segment in the timeline's fps
+    AudioData* audioData;    // Reference to the audio data
+    Uint32 sourceStartTime;  // Start time in the original audio file
+    Uint32 duration;         // Duration of this segment
+    Uint32 timelinePosition; // Position in the overall timeline
+    Uint32 timelineDuration; // Duration of this segment in the timeline's fps
+    int trackID;             // The audio track this segment is on
 
     // Checks if two VideoSegments on the same track overlap
     bool overlapsWith(AudioSegment* other) {
+        if (this->trackID != other->trackID) return false;
         if (this->timelinePosition  + this->timelineDuration  < other->timelinePosition) return false;
         if (other->timelinePosition + other->timelineDuration < this->timelinePosition)  return false;
         return true;
@@ -76,12 +80,14 @@ public:
 private:
     VideoSegment* getVideoSegmentAtPos(int x, int y);
     AudioSegment* getAudioSegmentAtPos(int x, int y);
-    bool isCollidingWithOtherSegment(VideoSegment* videoSegment, int trackID);
-    bool isCollidingWithOtherSegment(AudioSegment* audioSegment, int trackID);
+    bool isCollidingWithOtherSegment(VideoSegment* videoSegment);
+    bool isCollidingWithOtherSegment(AudioSegment* audioSegment);
 private:
     bool m_playing = false;
-    std::vector<std::vector<VideoSegment>> m_videoTracks; // List of all videoTracks with for every videoTrack a list of all VideoSegments on it.
-    std::vector<std::vector<AudioSegment>> m_audioTracks; // List of all audioTracks with for every audioTrack a list of all AudioSegments on it.
+    int m_videoTrackCount = 1;
+    int m_audioTrackCount = 1;
+    std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
+    std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments in the timeline.
     Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
     Uint32 m_startPlayTime = 0; // The time in the timeline where playing starts from (in frames)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
