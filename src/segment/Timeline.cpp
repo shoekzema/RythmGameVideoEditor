@@ -169,30 +169,175 @@ void Timeline::handleEvent(SDL_Event& event) {
         break;
     }
     case SDL_MOUSEBUTTONDOWN: {
-        SDL_Point mousePoint = { event.button.x, event.button.y };
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            if (m_isDragging) break;
 
-        // If clicked outside this segment, do nothing
-        if (!SDL_PointInRect(&mousePoint, &rect)) break;
+            SDL_Point mouseButton = { event.button.x, event.button.y };
 
-        // If clicked in the left column, do nothing
-        if (mousePoint.x < m_trackStartXPos) break;
+            // If clicked outside this segment, do nothing
+            if (!SDL_PointInRect(&mouseButton, &rect)) break;
 
-        Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+            // If clicked in the left column, do nothing
+            if (mouseButton.x < m_trackStartXPos) break;
 
-        VideoSegment* selectedVideoSegment = getVideoSegmentAtPos(mousePoint.x, mousePoint.y);
-        AudioSegment* selectedAudioSegment = getAudioSegmentAtPos(mousePoint.x, mousePoint.y);
+            Uint32 clickedFrame = (mouseButton.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-        if (selectedVideoSegment) break; // If we selected a video segment, do nothing FOR NOW ... TODO: select it
-        if (selectedAudioSegment) break; // If we selected an audio segment, do nothing FOR NOW ... TODO: select it
+            VideoSegment* clickedVideoSegment = getVideoSegmentAtPos(mouseButton.x, mouseButton.y);
+            AudioSegment* clickedAudioSegment = getAudioSegmentAtPos(mouseButton.x, mouseButton.y);
 
-        // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
-        m_playing = false;
-        setCurrentTime(selectedFrame);
+            // If we clicked on a video segment
+            if (clickedVideoSegment) {
+                // If shift is held, toggle selection of the clicked segment
+                if (SDL_GetModState() & KMOD_SHIFT) {
+                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
+                        m_selectedVideoSegments.push_back(clickedVideoSegment);
+                    }
+                    else {
+                        m_selectedVideoSegments.erase(std::remove(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment), m_selectedVideoSegments.end());
+                    }
+                }
+                else {
+                    // If shift is not held and the clicked segment was not already selected
+                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
+                        m_selectedVideoSegments.clear();
+                        m_selectedAudioSegments.clear();
+                        m_selectedVideoSegments.push_back(clickedVideoSegment);
+                    }
+                    // Start holding/dragging logic
+                    m_isHolding = true;
+                    m_mouseHoldStartX = mouseButton.x;
+                    m_mouseHoldStartTrackID = 0; // TODO
+                    m_lastLegalFrame = clickedFrame;
+                    m_lastLegalLeftmostFrame = clickedFrame;
+
+                    // Find the earliest/leftmost frame position of all selected segments
+                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                        if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+                    }
+                    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                        if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+                    }
+                }
+                break;
+            }
+            // If we selected an audio segment
+            else if (clickedAudioSegment) {
+                // If shift is held, toggle selection of the clicked segment
+                if (SDL_GetModState() & KMOD_SHIFT) {
+                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
+                        m_selectedAudioSegments.push_back(clickedAudioSegment);
+                    }
+                    else {
+                        m_selectedAudioSegments.erase(std::remove(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment), m_selectedAudioSegments.end());
+                    }
+                }
+                else {
+                    // If shift is not held and the clicked segment was not already selected
+                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
+                        m_selectedVideoSegments.clear();
+                        m_selectedAudioSegments.clear();
+                        m_selectedAudioSegments.push_back(clickedAudioSegment);
+                    }
+                    m_isHolding = true;
+                    m_mouseHoldStartX = mouseButton.x;
+                    m_mouseHoldStartTrackID = 0; // TODO
+                    m_lastLegalFrame = clickedFrame;
+                    m_lastLegalLeftmostFrame = clickedFrame;
+
+                    // Find the earliest/leftmost frame position of all selected segments
+                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                        if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+                    }
+                    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                        if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+                    }
+                }
+                break;
+            }
+
+            // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
+            m_playing = false;
+            setCurrentTime(clickedFrame);
+        }
         break;
     }
     case SDL_MOUSEMOTION: {
         SDL_Point mousePoint = { event.motion.x, event.motion.y };
         mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+
+        if (m_isHolding && !m_isDragging) {
+            // If we moved above a threshold amount of pixels from the starting X-location of the mouse since holding the left mouse button, start dragging
+            if (std::abs(mousePoint.x - m_mouseHoldStartX) > m_draggingThreshold) {
+                m_isDragging = true; 
+            }
+        }
+
+        // If we are dragging and we have selected some segments
+        if (m_isDragging && (!m_selectedVideoSegments.empty() || !m_selectedAudioSegments.empty())) {
+            Uint32 currentFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+            if (mousePoint.x < rect.x + m_trackStartXPos) currentFrame = 0;
+
+            int deltaFrames; // Amount of frames to move
+            if (currentFrame < m_lastLegalFrame) { // Moving left
+                deltaFrames = m_lastLegalFrame - currentFrame; // Absolute difference
+                if (deltaFrames > m_lastLegalLeftmostFrame) { // Would cause uint underflow
+                    deltaFrames = -m_lastLegalLeftmostFrame;
+                }
+                else {
+                    deltaFrames = -deltaFrames;
+                }
+            }
+            else { // Moving right
+                deltaFrames = currentFrame - m_lastLegalFrame;
+            }
+            if (deltaFrames == 0) break; // No movement, so just stop here
+
+            // Move all selected segments by deltaFrames (no collision checks yet)
+            for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                m_selectedVideoSegments[i]->timelinePosition += deltaFrames;
+            }
+            for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                m_selectedAudioSegments[i]->timelinePosition += deltaFrames;
+            }
+
+            // For every moved segment, check for collisions
+            bool illegalMove = false;
+            for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                // If it collides, undo every move
+                if (isCollidingWithOtherSegments(m_selectedVideoSegments[i])) {
+                    illegalMove = true;
+                    break; // Exit loop
+                }
+            }
+            if (!illegalMove) {
+                for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                    // If it collides, undo every move
+                    if (isCollidingWithOtherSegments(m_selectedVideoSegments[i])) {
+                        illegalMove = true;
+                        break; // Exit loop
+                    }
+                }
+            }
+            if (illegalMove) {
+                // Move all selected segments back
+                for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                    m_selectedVideoSegments[i]->timelinePosition -= deltaFrames;
+                }
+                for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                    m_selectedAudioSegments[i]->timelinePosition -= deltaFrames;
+                }
+            }
+            else {
+                // Update lastLegalFrame and -leftMostFrame
+                m_lastLegalFrame = currentFrame;
+                m_lastLegalLeftmostFrame += deltaFrames;
+            }
+        }
+        break;
+    }
+    case SDL_MOUSEBUTTONUP: {
+        m_isHolding = false;
+        m_isDragging = false;
         break;
     }
     case SDL_MOUSEWHEEL: {
@@ -236,15 +381,15 @@ void Timeline::handleEvent(SDL_Event& event) {
 VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
     if (x < rect.x + m_trackStartXPos) return nullptr;
     if (y < rect.y + m_topBarheight) return nullptr;
-    int selectedTrack = (y - rect.y - m_topBarheight) % m_trackHeight;
-    if (selectedTrack > m_videoTrackCount) return nullptr;
+    int selectedTrack = (y - rect.y - m_topBarheight) / m_trackHeight;
+    if (selectedTrack >= m_videoTrackCount) return nullptr;
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
     // Iterate over video segments to find which one is active at currentTime
     for (VideoSegment& segment : m_videoSegments) {
         if (segment.trackID != selectedTrack) continue;
-        if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
+        if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelinePosition + segment.timelineDuration) {
             return &segment;
         }
     }
@@ -254,32 +399,34 @@ VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
 AudioSegment* Timeline::getAudioSegmentAtPos(int x, int y) {
     if (x < rect.x + m_trackStartXPos) return nullptr;
     if (y < rect.y + m_topBarheight + m_videoTrackCount * m_trackHeight) return nullptr;
-    int selectedTrack = (y - rect.y - m_topBarheight) % m_trackHeight - m_videoTrackCount;
-    if (selectedTrack > m_audioTrackCount) return nullptr;
+    int selectedTrack = (y - rect.y - m_topBarheight) / m_trackHeight - m_videoTrackCount;
+    if (selectedTrack >= m_audioTrackCount) return nullptr;
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
     // Iterate over video segments to find which one is active at currentTime
     for (AudioSegment& segment : m_audioSegments) {
         if (segment.trackID != selectedTrack) continue;
-        if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelineDuration) {
+        if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelinePosition + segment.timelineDuration) {
             return &segment;
         }
     }
     return nullptr;
 }
 
-bool Timeline::isCollidingWithOtherSegment(VideoSegment* videoSegment) {
+bool Timeline::isCollidingWithOtherSegments(VideoSegment* videoSegment) {
     // Iterate over video segments to find which one overlaps with the input segment
     for (VideoSegment& segment : m_videoSegments) {
+        if (&segment == videoSegment) continue; // Skip self-collision check
         if (videoSegment->overlapsWith(&segment)) return true;
     }
     return false;
 }
 
-bool Timeline::isCollidingWithOtherSegment(AudioSegment* audioSegment) {
+bool Timeline::isCollidingWithOtherSegments(AudioSegment* audioSegment) {
     // Iterate over video segments to find which one overlaps with the input segment
     for (AudioSegment& segment : m_audioSegments) {
+        if (&segment == audioSegment) continue; // Skip self-collision check
         if (audioSegment->overlapsWith(&segment)) return true;
     }
     return false;
@@ -386,7 +533,7 @@ void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
         };
 
         // Cannot drop here, because it would overlap with another segment
-        if (isCollidingWithOtherSegment(&videoSegment)) return;
+        if (isCollidingWithOtherSegments(&videoSegment)) return;
     }
     // In case the asset has audio
     if (data->audioData) {
@@ -401,7 +548,7 @@ void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
         };
 
         // Cannot drop here, because it would overlap with another segment
-        if (isCollidingWithOtherSegment(&audioSegment)) return;
+        if (isCollidingWithOtherSegments(&audioSegment)) return;
     }
 
     // If we reached here, then the new video segment and/or audio segment can be added

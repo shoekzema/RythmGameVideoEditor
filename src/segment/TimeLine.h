@@ -80,8 +80,8 @@ public:
 private:
     VideoSegment* getVideoSegmentAtPos(int x, int y);
     AudioSegment* getAudioSegmentAtPos(int x, int y);
-    bool isCollidingWithOtherSegment(VideoSegment* videoSegment);
-    bool isCollidingWithOtherSegment(AudioSegment* audioSegment);
+    bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
+    bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
 private:
     bool m_playing = false;
     int m_videoTrackCount = 1;
@@ -92,6 +92,17 @@ private:
     Uint32 m_startPlayTime = 0; // The time in the timeline where playing starts from (in frames)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
     int m_fps = 60; // Target frames per second to render in.
+
+    // Interaction variables
+    std::vector<VideoSegment*> m_selectedVideoSegments;
+    std::vector<AudioSegment*> m_selectedAudioSegments;
+    bool m_isHolding = false;
+    bool m_isDragging = false;
+    int m_draggingThreshold = 20; // Pixel threshold for dragging segments
+    int m_mouseHoldStartX = 0;
+    int m_mouseHoldStartTrackID = 0;
+    Uint32 m_lastLegalFrame = 0; // The last frame selected to which moving the selected segments was legal
+    Uint32 m_lastLegalLeftmostFrame = 0; // The last earliest/leftmost frame of all selected segments, to which moving was legal
 
     Uint32 m_zoom = 512; // The amount to zoom out (minimum = 2, meaning a distance of 2 frame between timeline labels)
     Uint32 m_scrollOffset = 0; // The leftmost frame on screen
