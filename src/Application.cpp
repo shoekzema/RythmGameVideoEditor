@@ -73,11 +73,11 @@ void Application::handleEvents() {
         }
 
         switch (event.type) {
-        case SDL_QUIT:
+        case SDL_QUIT: {
             m_running = false;
             break;
-
-        case SDL_WINDOWEVENT:
+        }
+        case SDL_WINDOWEVENT: {
             if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                 int newWidth = event.window.data1;
                 int newHeight = event.window.data2;
@@ -89,8 +89,8 @@ void Application::handleEvents() {
                 m_rootSegment->update(0, 0, newWidth, newHeight);
             }
             break;
-
-        case SDL_MOUSEBUTTONDOWN:
+        }
+        case SDL_MOUSEBUTTONDOWN: {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
@@ -102,8 +102,8 @@ void Application::handleEvents() {
                 }
             }
             break;
-
-        case SDL_MOUSEBUTTONUP:
+        }
+        case SDL_MOUSEMOTION: {
             if (m_isDragging && m_draggedAsset) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
@@ -111,14 +111,22 @@ void Application::handleEvents() {
                 Timeline* timeline = m_rootSegment->findType<Timeline>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
-                    timeline->addAssetSegments(m_draggedAsset, mouseButton.x, mouseButton.y);
+                    if (timeline->addAssetSegments(m_draggedAsset, mouseButton.x, mouseButton.y)) {
+                        // Reset the dragging state
+                        m_isDragging = false;
+                        m_draggedAsset = nullptr;
+                        break;
+                    }
                 }
-
-                // Reset the dragging state
-                m_isDragging = false;
-                m_draggedAsset = nullptr;
             }
             break;
+        }
+        case SDL_MOUSEBUTTONUP: {
+            // Reset the dragging state
+            m_isDragging = false;
+            m_draggedAsset = nullptr;
+            break;
+        }
         }
     }
 }

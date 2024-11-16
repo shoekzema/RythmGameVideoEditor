@@ -310,9 +310,9 @@ void Timeline::handleEvent(SDL_Event& event) {
                 }
             }
             if (!illegalMove) {
-                for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
                     // If it collides, undo every move
-                    if (isCollidingWithOtherSegments(m_selectedVideoSegments[i])) {
+                    if (isCollidingWithOtherSegments(m_selectedAudioSegments[i])) {
                         illegalMove = true;
                         break; // Exit loop
                     }
@@ -492,14 +492,14 @@ Segment* Timeline::findTypeImpl(const std::type_info& type) {
     return nullptr;
 }
 
-void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
+bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     SDL_Point mousePoint = { mouseX, mouseY };
 
     // If outside this segment, do nothing
-    if (!SDL_PointInRect(&mousePoint, &rect)) return;
+    if (!SDL_PointInRect(&mousePoint, &rect)) return false;
 
     // If in the left column, do nothing
-    if (mousePoint.x < m_trackStartXPos) return;
+    if (mousePoint.x < m_trackStartXPos) return false;
 
     Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -533,7 +533,7 @@ void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
         };
 
         // Cannot drop here, because it would overlap with another segment
-        if (isCollidingWithOtherSegments(&videoSegment)) return;
+        if (isCollidingWithOtherSegments(&videoSegment)) return false;
     }
     // In case the asset has audio
     if (data->audioData) {
@@ -548,14 +548,38 @@ void Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
         };
 
         // Cannot drop here, because it would overlap with another segment
-        if (isCollidingWithOtherSegments(&audioSegment)) return;
+        if (isCollidingWithOtherSegments(&audioSegment)) return false;
     }
 
+    // Unselect any selected segments
+    m_selectedVideoSegments.clear();
+    m_selectedAudioSegments.clear();
+
     // If we reached here, then the new video segment and/or audio segment can be added
+    // Also immediately select the new assets (so we can immediately move them until we release the mouse)
     if (data->videoData) {
         m_videoSegments.push_back(videoSegment);
+        m_selectedVideoSegments.push_back(&m_videoSegments.back());
     }
     if (data->audioData) {
         m_audioSegments.push_back(audioSegment);
+        m_selectedAudioSegments.push_back(&m_audioSegments.back());
     }
+
+    // Start dragging logic
+    m_isHolding = true;
+    m_isDragging = true;
+    m_mouseHoldStartTrackID = 0; // TODO
+    m_lastLegalFrame = selectedFrame;
+    m_lastLegalLeftmostFrame = selectedFrame;
+
+    // Find the earliest/leftmost frame position of all selected segments
+    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+        if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+    }
+    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+        if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+    }
+
+    return true;
 }

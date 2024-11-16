@@ -76,7 +76,7 @@ public:
     void setCurrentTime(Uint32 time);
 
     // Add a video and/or audio segment to the timeline at the mouse position
-    void addAssetSegments(AssetData* data, int mouseX, int mouseY);
+    bool addAssetSegments(AssetData* data, int mouseX, int mouseY);
 private:
     VideoSegment* getVideoSegmentAtPos(int x, int y);
     AudioSegment* getAudioSegmentAtPos(int x, int y);
