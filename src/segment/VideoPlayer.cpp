@@ -162,7 +162,7 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
             targetTimestamp = currentTimestamp;
         }
 
-        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetTimestamp, AVSEEK_FLAG_FRAME) < 0) {
+        if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
             std::cerr << "Error seeking video to timestamp: " << targetTimestamp << std::endl;
             return false;
         }

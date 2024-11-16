@@ -12,6 +12,8 @@ struct VideoSegment {
     Uint32 timelineDuration; // Duration of this segment in the timeline's fps
     AVRational fps;          // Source frames per second as an AVRational (use av_q2d to convert to double)
     int trackID;             // The video track this segment is on
+    SDL_Texture* firstFrame; // First video frame
+    SDL_Texture* lastFrame;  // First video frame
 
     // Checks if two VideoSegments on the same track overlap
     bool overlapsWith(VideoSegment* other) {

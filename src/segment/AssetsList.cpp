@@ -331,7 +331,7 @@ bool AssetsList::loadFile(const char* filepath) {
     }
 
     // Set a video/audio thumbnail texture
-    newAsset.assetFrameTexture = getFrameTexture(newAsset.videoData);
+    newAsset.assetFrameTexture = getThumbnail(newAsset.videoData);
 
     // Now that we used the video stream, throw it all away, cause we won't ever use it again
     if (fakeVideoStream) {
@@ -346,42 +346,7 @@ bool AssetsList::loadFile(const char* filepath) {
     return true; // Successfully loaded the video/audio file
 }
 
-AVFrame* AssetsList::getFrame(VideoData* videoData, int frameIndex) {
-    AVPacket packet;
-    int frameFinished = 0;
-    int currentFrame = 0;
-
-    // Read packets from the media file. Each packet corresponds to a small chunk of data (e.g., a frame).
-    while (av_read_frame(videoData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoData->streamIndex) {
-            // Send the packet to the codec for decoding
-            avcodec_send_packet(videoData->codecContext, &packet);
-
-            // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
-            if (ret >= 0) {
-                if (currentFrame == frameIndex) {
-                    // Convert the frame to RGB
-                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-                    uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
-
-                    // Perform the conversion to RGB.
-                    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-                    sws_scale(videoData->swsContext, videoData->frame->data, videoData->frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
-
-                    av_packet_unref(&packet);
-                    return videoData->rgbFrame; // Return the RGB frame
-                }
-                currentFrame++;
-            }
-        }
-        av_packet_unref(&packet);
-    }
-
-    return nullptr;  // Frame not found
-}
-
-SDL_Texture* AssetsList::getFrameTexture(VideoData* videoData) {
+SDL_Texture* AssetsList::getThumbnail(VideoData* videoData) {
 #ifdef _WIN32
     // If on a windows machine and m_useWindowsThumbnail is true, get the same thumbnail as windows shows
     if (m_useWindowsThumbnail) {
@@ -389,33 +354,9 @@ SDL_Texture* AssetsList::getFrameTexture(VideoData* videoData) {
         return getWindowsThumbnail(wideFilePath.c_str());
     }
 #endif // _WIN32
-    // Get the first video frame and use it as a thumbnail
-    AVFrame* frame = getFrame(videoData, 0); // Get the first frame
-    if (!frame) {
-        return nullptr;
-    }
-
-    // Create an SDL_Texture from the frame's RGB data
-    SDL_Texture* texture = SDL_CreateTexture(p_renderer,
-        SDL_PIXELFORMAT_RGB24,
-        SDL_TEXTUREACCESS_STREAMING,
-        videoData->codecContext->width,
-        videoData->codecContext->height);
-
-    // Lock the texture for pixel access
-    void* pixels;
-    int pitch;
-    SDL_LockTexture(texture, nullptr, &pixels, &pitch);
-
-    // Copy the frame's RGB data into the texture
-    for (int y = 0; y < videoData->codecContext->height; y++) {
-        memcpy((uint8_t*)pixels + y * pitch, videoData->rgbFrame->data[0] + y * videoData->rgbFrame->linesize[0], videoData->codecContext->width * 3);
-    }
-
-    SDL_UnlockTexture(texture);
-    return texture;
+    // Otherwise, get the first video frame as the thumbnail
+    return videoData->getFrameTexture(p_renderer, 0);
 }
-
 
 #ifdef _WIN32
 

@@ -83,6 +83,29 @@ void Timeline::render() {
         SDL_Rect segmentRect = { renderXPos + 1, renderYPos + 1, renderWidth - 2, m_trackHeight - 2 };
         SDL_SetRenderDrawColor(p_renderer, m_videoTrackSegmentColor.r, m_videoTrackSegmentColor.g, m_videoTrackSegmentColor.b, m_videoTrackSegmentColor.a);
         SDL_RenderFillRect(p_renderer, &segmentRect);
+
+        // Get the width and height of the original video texture
+        int videoFrameWidth, videoFrameHeight;
+        SDL_QueryTexture(segment.firstFrame, nullptr, nullptr, &videoFrameWidth, &videoFrameHeight);
+
+        // Draw the first and last frame of the video
+        int frameInTrackWidth = (m_trackHeight - 2) * videoFrameWidth / videoFrameHeight; // How wide we want the frames
+
+        // Draw the first frame
+        int firstFrameWidth = std::min(renderWidth - 2, frameInTrackWidth); // How wide can we actually make it
+        SDL_Rect firstFrameRect = { renderXPos + 1, renderYPos + 1, firstFrameWidth, m_trackHeight - 2 };
+        int sourceWidth = videoFrameWidth * firstFrameWidth / frameInTrackWidth; // How much to take from the original frame texture
+        SDL_Rect sourceRect = { 0, 0, sourceWidth, videoFrameHeight }; // Crop the rest out (if necessary)
+        SDL_RenderCopy(p_renderer, segment.firstFrame, &sourceRect, &firstFrameRect);
+
+        int renderWidthLeftOver = renderWidth - 2 - firstFrameWidth;
+        if (renderWidthLeftOver > 0) {
+            // Draw the last frame
+            int lastFrameWidth = std::min(renderWidthLeftOver, frameInTrackWidth); // How wide can we actually make it
+            SDL_Rect lastFrameRect = { renderXPos + renderWidth - 1 - lastFrameWidth, renderYPos + 1, lastFrameWidth, m_trackHeight - 2 };
+            sourceRect.w = videoFrameWidth * lastFrameWidth / frameInTrackWidth; // How much to take from the original frame texture
+            SDL_RenderCopy(p_renderer, segment.lastFrame, &sourceRect, &lastFrameRect);
+        }
     }
 
     // Draw all audio tracks
@@ -439,7 +462,7 @@ VideoSegment* Timeline::getCurrentVideoSegment() {
     // Iterate over video segments to find which one is active at currentTime
     for (VideoSegment& segment : m_videoSegments) {
         if (currentTime >= segment.timelinePosition &&
-            currentTime <= segment.timelinePosition + segment.timelineDuration) {
+            currentTime < segment.timelinePosition + segment.timelineDuration) {
             return &segment;  // Return the active video segment
         }
     }
@@ -452,7 +475,7 @@ AudioSegment* Timeline::getCurrentAudioSegment() {
 
     for (AudioSegment& segment : m_audioSegments) {
         if (currentTime >= segment.timelinePosition &&
-            currentTime <= segment.timelinePosition + segment.timelineDuration) {
+            currentTime < segment.timelinePosition + segment.timelineDuration) {
             return &segment;  // Return the active audio segment
         }
     }
@@ -531,6 +554,8 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
             .fps = data->videoData->getFPS(),
             .trackID = trackID
         };
+        videoSegment.firstFrame = videoSegment.videoData->getFrameTexture(p_renderer, 0);
+        videoSegment.lastFrame  = videoSegment.videoData->getFrameTexture(p_renderer, videoSegment.duration - 1);
 
         // Cannot drop here, because it would overlap with another segment
         if (isCollidingWithOtherSegments(&videoSegment)) return false;
