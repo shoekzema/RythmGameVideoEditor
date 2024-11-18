@@ -76,7 +76,12 @@ void Timeline::render() {
 
         // Draw the outlines
         SDL_Rect outlineRect = { renderXPos - 1, renderYPos - 1, renderWidth + 2, m_trackHeight + 2 };
-        SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
+        if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), &segment) != m_selectedVideoSegments.end()) {
+            SDL_SetRenderDrawColor(p_renderer, m_segmentHighlightColor.r, m_segmentHighlightColor.g, m_segmentHighlightColor.b, m_segmentHighlightColor.a);
+        }
+        else {
+            SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
+        }
         SDL_RenderFillRect(p_renderer, &outlineRect);
 
         // Draw the inside BG
@@ -151,7 +156,12 @@ void Timeline::render() {
 
         // Draw the outlines
         SDL_Rect outlineRect = { renderXPos - 1, renderYPos - 1, renderWidth + 2, m_trackHeight + 2 };
-        SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
+        if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), &segment) != m_selectedAudioSegments.end()) {
+            SDL_SetRenderDrawColor(p_renderer, m_segmentHighlightColor.r, m_segmentHighlightColor.g, m_segmentHighlightColor.b, m_segmentHighlightColor.a);
+        }
+        else {
+            SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
+        }
         SDL_RenderFillRect(p_renderer, &outlineRect);
 
         // Draw the inside BG
@@ -281,6 +291,8 @@ void Timeline::handleEvent(SDL_Event& event) {
             // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
             m_playing = false;
             setCurrentTime(clickedFrame);
+            m_selectedVideoSegments.clear();
+            m_selectedAudioSegments.clear();
         }
         break;
     }
@@ -300,7 +312,7 @@ void Timeline::handleEvent(SDL_Event& event) {
             Uint32 currentFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
             if (mousePoint.x < rect.x + m_trackStartXPos) currentFrame = 0;
 
-            int deltaFrames; // Amount of frames to move
+            Uint32 deltaFrames; // Amount of frames to move
             if (currentFrame < m_lastLegalFrame) { // Moving left
                 deltaFrames = m_lastLegalFrame - currentFrame; // Absolute difference
                 if (deltaFrames > m_lastLegalLeftmostFrame) { // Would cause uint underflow

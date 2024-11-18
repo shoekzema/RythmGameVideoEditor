@@ -116,16 +116,17 @@ private:
     int m_trackHeight = 64;
     int m_rowHeight = m_trackHeight + 2; // Includes a pixel below and above
 
-    SDL_Color m_videoTrackBGColor      = { 35,  38,  41, 255 };
-    SDL_Color m_videoTrackDataColor    = { 33,  36,  39, 255 };
-    SDL_Color m_videoTrackSegmentColor = { 19, 102, 162, 255 };
+    SDL_Color m_videoTrackBGColor      = { 35,  38,  41, 255 }; // Desaturated Blueish
+    SDL_Color m_videoTrackDataColor    = { 33,  36,  39, 255 }; // Darker Desaturated Blueish
+    SDL_Color m_videoTrackSegmentColor = { 19, 102, 162, 255 }; // Blue
 
-    SDL_Color m_audioTrackBGColor      = { 40, 37, 45, 255 };
-    SDL_Color m_audioTrackDataColor    = { 38, 35, 43, 255 };
-    SDL_Color m_audioTrackSegmentColor = { 13, 58, 32, 255 };
+    SDL_Color m_audioTrackBGColor      = { 40, 37, 45, 255 }; // Desaturated Purplish
+    SDL_Color m_audioTrackDataColor    = { 38, 35, 43, 255 }; // Darker Desaturated Purplish
+    SDL_Color m_audioTrackSegmentColor = { 13, 58, 32, 255 }; // Dark Green
 
-    SDL_Color m_segmentOutlineColor = {  61, 174, 233, 255 };
-    SDL_Color m_timeIndicatorColor  = { 255, 255, 255, 255 };
-    SDL_Color m_betweenLineColor    = {  30,  33,  36, 255 };
-    SDL_Color m_timeLabelColor      = { 180, 180, 180, 255 };
+    SDL_Color m_segmentOutlineColor   = {  61, 174, 233, 255 }; // Light Blue
+    SDL_Color m_segmentHighlightColor = { 246, 116,   0, 255 }; // Light Orange
+    SDL_Color m_timeIndicatorColor    = { 255, 255, 255, 255 }; // White
+    SDL_Color m_betweenLineColor      = {  30,  33,  36, 255 }; // Dark Gray
+    SDL_Color m_timeLabelColor        = { 180, 180, 180, 255 }; // Light Gray
 };
