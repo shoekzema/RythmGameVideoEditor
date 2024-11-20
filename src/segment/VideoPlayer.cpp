@@ -38,6 +38,9 @@ void VideoPlayer::render() {
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
     if (m_timeline) {
+        SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
+        SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
+
         if (m_timeline->isPlaying()) {
             playTimeline();
         }
@@ -47,9 +50,6 @@ void VideoPlayer::render() {
             // Pause or stop any other playback actions as needed
             m_lastVideoSegment = nullptr;
             m_lastAudioSegment = nullptr;
-
-            SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
-            SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
         }
     }
     else {
@@ -87,6 +87,9 @@ void VideoPlayer::setVideoRect(SDL_Rect* rect) {
 }
 
 void VideoPlayer::playTimeline() {
+    static int s_lastFrameWidth = 0;
+    static int s_lastFrameHeight = 0;
+
     // Get the current video segment from the timeline
     VideoSegment* currentVideoSegment = m_timeline->getCurrentVideoSegment();
     if (currentVideoSegment) {
@@ -98,19 +101,25 @@ void VideoPlayer::playTimeline() {
 
         // Display the video frame using SDL
         if (currentVideoSegment->videoData->rgbFrame) {
-            // Create an SDL texture if not already created
-            if (!m_videoTexture) {
+            int frameWidth = currentVideoSegment->videoData->codecContext->width;
+            int frameHeight = currentVideoSegment->videoData->codecContext->height;
+
+            // Create an SDL texture if not already created or if size has changed
+            if (!m_videoTexture || frameWidth != s_lastFrameWidth || frameHeight != s_lastFrameHeight) {
+                if (m_videoTexture) SDL_DestroyTexture(m_videoTexture);  // Free existing texture
                 m_videoTexture = SDL_CreateTexture(
                     p_renderer,
                     SDL_PIXELFORMAT_RGB24,
                     SDL_TEXTUREACCESS_STREAMING,
-                    currentVideoSegment->videoData->codecContext->width,
-                    currentVideoSegment->videoData->codecContext->height
+                    frameWidth,
+                    frameHeight
                 );
                 if (!m_videoTexture) {
                     std::cerr << "Failed to create SDL texture: " << SDL_GetError() << std::endl;
                     return;
                 }
+                s_lastFrameWidth = frameWidth;
+                s_lastFrameHeight = frameHeight;
             }
 
             // Copy frame data to the texture
@@ -121,13 +130,25 @@ void VideoPlayer::playTimeline() {
                 currentVideoSegment->videoData->rgbFrame->linesize[0]
             );
 
+            SDL_Rect destRect = m_videoRect;
+
+            // Scale to fit within m_videoRect by maintaining aspect ratio
+            if (frameWidth * m_videoRect.h > frameHeight * m_videoRect.w) {
+                // Fit to width
+                destRect.w = m_videoRect.w;
+                destRect.h = (frameHeight * m_videoRect.w) / frameWidth;
+                destRect.y = m_videoRect.y + (m_videoRect.h - destRect.h) / 2; // Center vertically
+            }
+            else {
+                // Fit to height
+                destRect.h = m_videoRect.h;
+                destRect.w = (frameWidth * m_videoRect.h) / frameHeight;
+                destRect.x = m_videoRect.x + (m_videoRect.w - destRect.w) / 2; // Center horizontally
+            }
+
             // Draw the texture
-            SDL_RenderCopy(p_renderer, m_videoTexture, nullptr, &m_videoRect);
+            SDL_RenderCopy(p_renderer, m_videoTexture, nullptr, &destRect);
         }
-    }
-    else {
-        SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
-        SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
     }
 
     // Get the current audio segment (if applicable)
