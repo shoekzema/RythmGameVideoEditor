@@ -185,22 +185,16 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
 
             // Receive the frame from the decoder
             if (avcodec_receive_frame(videoSegment->videoData->codecContext, videoSegment->videoData->frame) == 0) {
+                auto stream = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex];
+
                 // Calculate the frame's presentation timestamp in frames (frame index)
-                double framePTS = videoSegment->videoData->frame->pts * 
-                    av_q2d(videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base);
+                double framePTS = videoSegment->videoData->frame->pts * av_q2d(stream->time_base);
 
                 // Convert framePTS to frames
-                framePTS = framePTS * videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->r_frame_rate.num /
-                    videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->r_frame_rate.den;
+                framePTS *= stream->r_frame_rate.num / stream->r_frame_rate.den;
 
-                // Calculate the frame duration based on the video's native frame rate (e.g., 24 fps video)
-                double videoFrameDuration = 1.0 / videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->r_frame_rate.num;
-
-                // Calculate the target frame duration based on the target playback fps (e.g., 60 fps)
-                double targetFrameDuration = 1.0 / m_timeline->getFPS(); // Target frame rate (e.g., 60 fps)
-
-                // Adjust the frame's timing based on the target frame rate
-                double adjustedFramePTS = framePTS * (videoFrameDuration / targetFrameDuration);
+                // Adjust the frame's timing based on the target frame rate (newPTS = PTS * targetFPS / videoFPS)
+                double adjustedFramePTS = framePTS * m_timeline->getFPS() / av_q2d(videoSegment->fps);
 
                 Uint32 currentPlaybackFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
 
@@ -213,7 +207,7 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
                 // Check if the frame is too early
                 if (adjustedFramePTS > currentPlaybackFrame) {
                     double frameTimeDifference = adjustedFramePTS - currentPlaybackFrame;
-                    double targetDelayTime = frameTimeDifference * targetFrameDuration; // Time delay in seconds
+                    double targetDelayTime = frameTimeDifference / m_timeline->getFPS(); // Time delay in seconds
                     SDL_Delay(static_cast<Uint32>(targetDelayTime * 1000));  // Delay in milliseconds
                 }
 
