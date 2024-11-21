@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string> 
+#include <algorithm>
+#include <vector>
 #include <SDL_ttf.h>
 #include "Timeline.h"
 #include "util.h"
@@ -197,6 +199,33 @@ void Timeline::handleEvent(SDL_Event& event) {
             else {
                 m_playing = true;
                 m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000 / m_fps);
+            }
+        }
+        // Check if the key pressed was delete
+        if (event.key.keysym.sym == SDLK_DELETE) {
+            if (!m_selectedVideoSegments.empty()) {
+                // Predicate to check if a VideoSegment exists in m_selectedVideoSegments
+                auto isSelected = [this](const VideoSegment& segment) {
+                    return std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), &segment) != m_selectedVideoSegments.end();
+                    };
+
+                // Remove all selected segments from m_videoSegments
+                m_videoSegments.erase(
+                    std::remove_if(m_videoSegments.begin(), m_videoSegments.end(), isSelected),
+                    m_videoSegments.end()
+                );
+            }
+            if (!m_selectedAudioSegments.empty()) {
+                // Predicate to check if an AudioSegment exists in m_selectedAudioSegments
+                auto isSelected = [this](const AudioSegment& segment) {
+                    return std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), &segment) != m_selectedAudioSegments.end();
+                    };
+
+                // Remove all selected segments from m_videoSegments
+                m_audioSegments.erase(
+                    std::remove_if(m_audioSegments.begin(), m_audioSegments.end(), isSelected),
+                    m_audioSegments.end()
+                );
             }
         }
         break;
