@@ -21,24 +21,37 @@ void AssetsList::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
-    SDL_Rect thumbnailRect = { m_assetXPos, m_assetStartYPos - m_scrollOffset, m_assetImageWidth, m_assetImageHeight };
+    int yPos = m_assetStartYPos - m_scrollOffset;
     for (int i = 0; i < m_assets.size(); i++) {
         // Use alternative background color rect for every second asset
         if (i % 2 == 1) {
-            SDL_Rect altBG = { 0, thumbnailRect.y - 1, rect.w, thumbnailRect.h + 1 };
+            SDL_Rect altBG = { rect.x, yPos - 1, rect.w, m_assetImageHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_altColor.r, m_altColor.g, m_altColor.b, m_altColor.a);
             SDL_RenderFillRect(p_renderer, &altBG); // Draw background
         }
 
+        // Get the width and height of the original video texture
+        int videoFrameWidth, videoFrameHeight;
+        SDL_QueryTexture(m_assets[i].assetFrameTexture, nullptr, nullptr, &videoFrameWidth, &videoFrameHeight);
+
+        SDL_Rect thumbnailRect = { m_assetXPos, yPos, m_assetImageWidth, m_assetImageHeight };
+        // If the video frame is too thin, make a black BG and put it in the middle
+        if (videoFrameWidth * m_assetImageHeight < videoFrameHeight * m_assetImageWidth) {
+            SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
+            SDL_RenderFillRect(p_renderer, &thumbnailRect);
+
+            thumbnailRect.w = (videoFrameWidth * m_assetImageHeight) / videoFrameHeight;
+            thumbnailRect.x += (m_assetImageWidth - thumbnailRect.w) / 2; // Center horizontally
+        }
         SDL_RenderCopy(p_renderer, m_assets[i].assetFrameTexture, nullptr, &thumbnailRect);
 
         renderText(p_renderer,
-            thumbnailRect.x + thumbnailRect.w + 6, // X position
-            thumbnailRect.y + 4,                   // Y position
+            m_assetXPos + m_assetImageWidth + 6, // X position
+            yPos + 4,                            // Y position
             getFont(),
             m_assets[i].assetName.c_str());
 
-        thumbnailRect.y += 2 + thumbnailRect.h;
+        yPos += 2 + m_assetImageHeight;
     }
 
     // If scrolling is possible, draw the scrollbar
