@@ -11,17 +11,17 @@
 Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color) 
 {
-    m_videoTrackPositionMap[0] = 0;
-    m_videoTrackPositionMap[1] = 1;
+    m_videoTrackIDtoPosMap[0] = 0;
+    m_videoTrackIDtoPosMap[1] = 1;
 
-    m_audioTrackPositionMap[0] = 0;
-    m_audioTrackPositionMap[1] = 1;
+    m_audioTrackIDtoPosMap[0] = 0;
+    m_audioTrackIDtoPosMap[1] = 1;
 
-    m_reverseVideoTrackPositionMap[0] = 0;
-    m_reverseVideoTrackPositionMap[1] = 1;
+    m_VideoTrackPosToIDMap[0] = 0;
+    m_VideoTrackPosToIDMap[1] = 1;
 
-    m_reverseAudioTrackPositionMap[0] = 0;
-    m_reverseAudioTrackPositionMap[1] = 1;
+    m_AudioTrackPosToIDMap[0] = 0;
+    m_AudioTrackPosToIDMap[1] = 1;
 
     m_nextVideoTrackID = 2;
     m_nextAudioTrackID = 2;
@@ -54,8 +54,8 @@ void Timeline::render() {
 
     // Draw all video tracks
     SDL_SetRenderDrawColor(p_renderer, 0, 0, 255, 255);
-    for (int i = 0; i < m_videoTrackPositionMap.size(); i++) {
-        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) - 1 - i) * m_rowHeight;
+    for (int i = 0; i < m_videoTrackIDtoPosMap.size(); i++) {
+        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - i) * m_rowHeight;
 
         // Draw the background that everything will be overlayed on. What is left are small lines in between
         SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
@@ -91,8 +91,8 @@ void Timeline::render() {
         }
 
         int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int trackPos = m_videoTrackPositionMap[segment.trackID];
-        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) - 1 - trackPos) * m_rowHeight;
+        int trackPos = m_videoTrackIDtoPosMap[segment.trackID];
+        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - trackPos) * m_rowHeight;
         int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
         // Draw the outlines
@@ -135,8 +135,8 @@ void Timeline::render() {
     }
 
     // Draw all audio tracks
-    for (int i = 0; i < m_audioTrackPositionMap.size(); i++) {
-        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) + i) * m_rowHeight;
+    for (int i = 0; i < m_audioTrackIDtoPosMap.size(); i++) {
+        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) + i) * m_rowHeight;
 
         // Draw the background that everything will be overlayed on. What is left are small lines in between
         SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
@@ -172,8 +172,8 @@ void Timeline::render() {
         }
 
         int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int trackPos = m_audioTrackPositionMap[segment.trackID];
-        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) + trackPos) * m_rowHeight;
+        int trackPos = m_audioTrackIDtoPosMap[segment.trackID];
+        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) + trackPos) * m_rowHeight;
         int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
         // Draw the outlines
@@ -197,7 +197,7 @@ void Timeline::render() {
         // Draw the current time indicator (a vertical line)
         int indicatorX = m_trackStartXPos + (m_currentTime - m_scrollOffset) * m_timeLabelInterval / m_zoom;
         SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
-        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + static_cast<int>(m_videoTrackPositionMap.size() + m_audioTrackPositionMap.size()) * m_rowHeight);
+        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + static_cast<int>(m_videoTrackIDtoPosMap.size() + m_audioTrackIDtoPosMap.size()) * m_rowHeight);
     }
 }
 
@@ -486,9 +486,9 @@ void Timeline::handleEvent(SDL_Event& event) {
 VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
     if (x < rect.x + m_trackStartXPos) return nullptr;
     if (y < rect.y + m_topBarheight) return nullptr;
-    int selectedTrackPos = static_cast<int>(m_videoTrackPositionMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
-    if (selectedTrackPos >= m_videoTrackPositionMap.size()) return nullptr;
-    int selectedTrack = m_reverseVideoTrackPositionMap[selectedTrackPos];
+    int selectedTrackPos = static_cast<int>(m_videoTrackIDtoPosMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
+    if (selectedTrackPos >= m_videoTrackIDtoPosMap.size()) return nullptr;
+    int selectedTrack = m_VideoTrackPosToIDMap[selectedTrackPos];
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -504,10 +504,10 @@ VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
 
 AudioSegment* Timeline::getAudioSegmentAtPos(int x, int y) {
     if (x < rect.x + m_trackStartXPos) return nullptr;
-    if (y < rect.y + m_topBarheight + m_videoTrackPositionMap.size() * m_trackHeight) return nullptr;
-    int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackPositionMap.size());
-    if (selectedTrackPos >= m_audioTrackPositionMap.size()) return nullptr;
-    int selectedTrack = m_reverseAudioTrackPositionMap[selectedTrackPos];
+    if (y < rect.y + m_topBarheight + m_videoTrackIDtoPosMap.size() * m_trackHeight) return nullptr;
+    int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackIDtoPosMap.size());
+    if (selectedTrackPos >= m_audioTrackIDtoPosMap.size()) return nullptr;
+    int selectedTrack = m_AudioTrackPosToIDMap[selectedTrackPos];
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -544,52 +544,52 @@ void Timeline::addTrack(Track track, int videoOrAudio, bool above) {
         int newVideoTrackID = m_nextVideoTrackID++;
 
         // Find the position to insert the new track
-        auto it = m_videoTrackPositionMap.find(track.trackID);
-        if (it != m_videoTrackPositionMap.end()) {
+        auto it = m_videoTrackIDtoPosMap.find(track.trackID);
+        if (it != m_videoTrackIDtoPosMap.end()) {
             int pos = it->second; // Get position of the existing track
             if (above) pos++;
 
             // Insert the new track relative to existing one, shift positions of others
-            for (auto& entry : m_videoTrackPositionMap) {
+            for (auto& entry : m_videoTrackIDtoPosMap) {
                 if (entry.second >= pos) {
-                    m_reverseVideoTrackPositionMap.erase(entry.second); // Remove old position entry in reverse map
+                    m_VideoTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
                     entry.second++; // Shift the position of tracks after the insertion point
-                    m_reverseVideoTrackPositionMap[entry.second] = entry.first; // Update reverse map with the new position
+                    m_VideoTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
                 }
             }
-            m_videoTrackPositionMap[newVideoTrackID] = pos;
-            m_reverseVideoTrackPositionMap[pos] = newVideoTrackID;
+            m_videoTrackIDtoPosMap[newVideoTrackID] = pos;
+            m_VideoTrackPosToIDMap[pos] = newVideoTrackID;
         }
         else {
             // Insert at the end: new track gets the next available position
-            m_videoTrackPositionMap[newVideoTrackID] = static_cast<int>(m_videoTrackPositionMap.size());
-            m_reverseVideoTrackPositionMap[static_cast<int>(m_videoTrackPositionMap.size())] = newVideoTrackID;
+            m_videoTrackIDtoPosMap[newVideoTrackID] = static_cast<int>(m_videoTrackIDtoPosMap.size());
+            m_VideoTrackPosToIDMap[static_cast<int>(m_videoTrackIDtoPosMap.size())] = newVideoTrackID;
         }
     }
     if (videoOrAudio == 1 || videoOrAudio == 2) {
         int newAudioTrackID = m_nextAudioTrackID++;
 
         // Find the position to insert the new track
-        auto it = m_audioTrackPositionMap.find(track.trackID);
-        if (it != m_audioTrackPositionMap.end()) {
+        auto it = m_audioTrackIDtoPosMap.find(track.trackID);
+        if (it != m_audioTrackIDtoPosMap.end()) {
             int pos = it->second; // Get position of the existing track
             if (above) pos++;
 
             // Insert the new track relative to existing one, shift positions of others
-            for (auto& entry : m_audioTrackPositionMap) {
+            for (auto& entry : m_audioTrackIDtoPosMap) {
                 if (entry.second >= pos) {
-                    m_reverseAudioTrackPositionMap.erase(entry.second); // Remove old position entry in reverse map
+                    m_AudioTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
                     entry.second++; // Shift the position of tracks after the insertion point
-                    m_reverseAudioTrackPositionMap[entry.second] = entry.first; // Update reverse map with the new position
+                    m_AudioTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
                 }
             }
-            m_audioTrackPositionMap[newAudioTrackID] = pos;
-            m_reverseAudioTrackPositionMap[pos] = newAudioTrackID;
+            m_audioTrackIDtoPosMap[newAudioTrackID] = pos;
+            m_AudioTrackPosToIDMap[pos] = newAudioTrackID;
         }
         else {
             // Insert at the end: new track gets the next available position
-            m_audioTrackPositionMap[newAudioTrackID] = static_cast<int>(m_audioTrackPositionMap.size());
-            m_reverseAudioTrackPositionMap[static_cast<int>(m_audioTrackPositionMap.size())] = newAudioTrackID;
+            m_audioTrackIDtoPosMap[newAudioTrackID] = static_cast<int>(m_audioTrackIDtoPosMap.size());
+            m_AudioTrackPosToIDMap[static_cast<int>(m_audioTrackIDtoPosMap.size())] = newAudioTrackID;
         }
     }
 }
@@ -605,7 +605,7 @@ VideoSegment* Timeline::getCurrentVideoSegment() {
         if (currentTime >= segment.timelinePosition &&
             currentTime < segment.timelinePosition + segment.timelineDuration) {
             // Check if the found segment is higher on the track ordering
-            if (!currentVideoSegment || (m_reverseVideoTrackPositionMap[segment.trackID] > m_reverseVideoTrackPositionMap[currentVideoSegment->trackID])) {
+            if (!currentVideoSegment || (m_VideoTrackPosToIDMap[segment.trackID] > m_VideoTrackPosToIDMap[currentVideoSegment->trackID])) {
                 currentVideoSegment = &segment; // Set this segment to be returned
             }
         }
@@ -663,16 +663,16 @@ Track Timeline::GetTrackID(SDL_Point mousePoint) {
     Track track;
     track.trackID = -1;
     // Iterate over video and audio tracks to find the trackID
-    for (int i = 0; i < m_videoTrackPositionMap.size(); i++) {
+    for (int i = 0; i < m_videoTrackIDtoPosMap.size(); i++) {
         if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
-            track.trackID = m_reverseVideoTrackPositionMap[m_videoTrackPositionMap.size() - 1 - i];
+            track.trackID = m_VideoTrackPosToIDMap[m_videoTrackIDtoPosMap.size() - 1 - i];
             track.trackType = VIDEO;
             return track;
         }
     }
-    for (int i = 0; i < m_audioTrackPositionMap.size(); i++) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i + 1)) {
-            track.trackID = m_reverseAudioTrackPositionMap[i];
+    for (int i = 0; i < m_audioTrackIDtoPosMap.size(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackIDtoPosMap.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackIDtoPosMap.size() + i + 1)) {
+            track.trackID = m_AudioTrackPosToIDMap[i];
             track.trackType = AUDIO;
             return track;
         }

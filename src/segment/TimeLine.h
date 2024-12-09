@@ -110,10 +110,10 @@ private:
     bool m_playing = false;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
     std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments in the timeline.
-    std::unordered_map<int, int> m_videoTrackPositionMap; // Maps videoTrackID to its position order
-    std::unordered_map<int, int> m_audioTrackPositionMap; // Maps audioTrackID to its position order
-    std::unordered_map<int, int> m_reverseVideoTrackPositionMap; // Maps position order to videoTrackID
-    std::unordered_map<int, int> m_reverseAudioTrackPositionMap; // Maps position order audioTrackID
+    std::unordered_map<int, int> m_videoTrackIDtoPosMap; // Maps videoTrackID to its position order
+    std::unordered_map<int, int> m_audioTrackIDtoPosMap; // Maps audioTrackID to its position order
+    std::unordered_map<int, int> m_VideoTrackPosToIDMap; // Maps position order to videoTrackID
+    std::unordered_map<int, int> m_AudioTrackPosToIDMap; // Maps position order audioTrackID
     int m_nextVideoTrackID; // Keeps track of the next available videoTrackID
     int m_nextAudioTrackID; // Keeps track of the next available audioTrackID
     Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
