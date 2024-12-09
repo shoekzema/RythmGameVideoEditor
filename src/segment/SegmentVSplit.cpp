@@ -35,7 +35,7 @@ void SegmentVSplit::render() {
 
 void SegmentVSplit::update(int x, int y, int w, int h) {
     int widthDiff = rect.w - w;
-    int widthChange = widthDiff / (rect.w / (float)m_leftSegment->rect.w);
+    int widthChange = widthDiff * m_leftSegment->rect.w / rect.w;
     m_leftSegment ->update(x,                     y, m_leftSegment->rect.w - widthChange, h);
     m_rightSegment->update(m_leftSegment->rect.w, y, w - m_leftSegment->rect.w,           h);
     m_divider = { m_divider.x - widthChange, y, m_dividerThickness, h };

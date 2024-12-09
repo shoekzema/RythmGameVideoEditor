@@ -56,7 +56,7 @@ void AssetsList::render() {
 
     // If scrolling is possible, draw the scrollbar
     int assetListLength;
-    assetListLength = m_assets.size() * m_assetHeight;
+    assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight;
     if (assetListLength + m_assetStartYPos > rect.h) {
         // Draw the scrollbar border
         SDL_Rect scrollbarBorder = { rect.w - m_scrollBarXPos - m_scrollBarWidth, m_assetStartYPos, m_scrollBarWidth, rect.h - 2 * m_assetStartYPos };
@@ -82,7 +82,7 @@ void AssetsList::update(int x, int y, int w, int h) {
 
     // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the segment size, it will scroll up if possible)
     int assetListLength;
-    assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+    assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
     if (assetListLength > rect.h) {
         if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
     }
@@ -101,7 +101,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
         if (!mouseInThisSegment) break;
 
         // Check if scrolling neccesary
-        int assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+        int assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
         if (assetListLength <= rect.h) break;
 
         // Scroll

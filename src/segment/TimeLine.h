@@ -1,5 +1,7 @@
 #pragma once
 #include <SDL.h>
+#include <vector>
+#include <unordered_map>
 #include "Segment.h"
 #include "EventManager.h"
 
@@ -84,12 +86,25 @@ private:
     AudioSegment* getAudioSegmentAtPos(int x, int y);
     bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
     bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
+
+    /**
+     * @brief Add a new track to the timeline.
+     * @param trackID The track from which we relatively add a new track.
+     * @param trackType The type of track of trackID.
+     * @param above Where to put the new track relative to the selected Track.
+     * @param videoOrAudio What type of track to add. 0 for video, 1 for audio, 2 for both (AV).
+     */
+    void addTrack(int trackID, int trackType, int videoOrAudio, bool above = true);
 private:
     bool m_playing = false;
-    int m_videoTrackCount = 1;
-    int m_audioTrackCount = 1;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
     std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments in the timeline.
+    std::unordered_map<int, int> m_videoTrackPositionMap; // Maps videoTrackID to its position order
+    std::unordered_map<int, int> m_audioTrackPositionMap; // Maps audioTrackID to its position order
+    std::unordered_map<int, int> m_reverseVideoTrackPositionMap; // Maps position order to videoTrackID
+    std::unordered_map<int, int> m_reverseAudioTrackPositionMap; // Maps position order audioTrackID
+    int m_nextVideoTrackID; // Keeps track of the next available videoTrackID
+    int m_nextAudioTrackID; // Keeps track of the next available audioTrackID
     Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
     Uint32 m_startPlayTime = 0; // The time in the timeline where playing starts from (in frames)
     Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)

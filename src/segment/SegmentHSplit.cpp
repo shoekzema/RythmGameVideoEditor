@@ -38,7 +38,7 @@ void SegmentHSplit::render() {
 
 void SegmentHSplit::update(int x, int y, int w, int h) {
     int heightDiff = rect.h - h;
-    int heightChange = heightDiff / (rect.h / (float)m_topSegment->rect.h);
+    int heightChange = heightDiff * m_topSegment->rect.h / rect.h;
     m_topSegment   ->update(x, y,                    w, m_topSegment->rect.h - heightChange);
     m_bottomSegment->update(x, m_topSegment->rect.h, w, h - m_topSegment->rect.h);
     m_divider = { x, m_divider.y - heightChange, w, m_dividerThickness };

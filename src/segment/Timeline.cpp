@@ -2,12 +2,29 @@
 #include <string> 
 #include <algorithm>
 #include <vector>
+#include <unordered_map>
 #include <SDL_ttf.h>
 #include "Timeline.h"
 #include "util.h"
 
 Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color) { }
+    : Segment(x, y, w, h, renderer, eventManager, parent, color) 
+{
+    m_videoTrackPositionMap[0] = 0;
+    m_videoTrackPositionMap[1] = 1;
+
+    m_audioTrackPositionMap[0] = 0;
+    m_audioTrackPositionMap[1] = 1;
+
+    m_reverseVideoTrackPositionMap[0] = 0;
+    m_reverseVideoTrackPositionMap[1] = 1;
+
+    m_reverseAudioTrackPositionMap[0] = 0;
+    m_reverseAudioTrackPositionMap[1] = 1;
+
+    m_nextVideoTrackID = 2;
+    m_nextAudioTrackID = 2;
+}
 
 Timeline::~Timeline() {
     // No need to delete renderer since it is managed elsewhere
@@ -36,8 +53,8 @@ void Timeline::render() {
 
     // Draw all video tracks
     SDL_SetRenderDrawColor(p_renderer, 0, 0, 255, 255);
-    for (int i = 0; i < m_videoTrackCount; i++) {
-        int trackYpos = rect.y + m_topBarheight + i * m_rowHeight;
+    for (int i = 0; i < m_videoTrackPositionMap.size(); i++) {
+        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) - 1 - i) * m_rowHeight;
 
         // Draw the background that everything will be overlayed on. What is left are small lines in between
         SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
@@ -73,7 +90,8 @@ void Timeline::render() {
         }
 
         int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int renderYPos = rect.y + m_topBarheight + segment.trackID * m_rowHeight;
+        int trackPos = m_videoTrackPositionMap[segment.trackID];
+        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) - 1 - trackPos) * m_rowHeight;
         int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
         // Draw the outlines
@@ -116,8 +134,8 @@ void Timeline::render() {
     }
 
     // Draw all audio tracks
-    for (int i = 0; i < m_audioTrackCount; i++) {
-        int trackYpos = rect.y + m_topBarheight + (m_videoTrackCount + i) * m_rowHeight;
+    for (int i = 0; i < m_audioTrackPositionMap.size(); i++) {
+        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) + i) * m_rowHeight;
 
         // Draw the background that everything will be overlayed on. What is left are small lines in between
         SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
@@ -153,7 +171,8 @@ void Timeline::render() {
         }
 
         int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int renderYPos = rect.y + m_topBarheight + (m_videoTrackCount + segment.trackID) * m_rowHeight;
+        int trackPos = m_audioTrackPositionMap[segment.trackID];
+        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackPositionMap.size()) + trackPos) * m_rowHeight;
         int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
         // Draw the outlines
@@ -177,7 +196,7 @@ void Timeline::render() {
         // Draw the current time indicator (a vertical line)
         int indicatorX = m_trackStartXPos + (m_currentTime - m_scrollOffset) * m_timeLabelInterval / m_zoom;
         SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
-        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + (m_videoTrackCount + m_audioTrackCount) * m_trackHeight);
+        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + static_cast<int>(m_videoTrackPositionMap.size() + m_audioTrackPositionMap.size()) * m_rowHeight);
     }
 }
 
@@ -231,13 +250,12 @@ void Timeline::handleEvent(SDL_Event& event) {
         break;
     }
     case SDL_MOUSEBUTTONDOWN: {
+        SDL_Point mouseButton = { event.button.x, event.button.y };
+        // If clicked outside this segment, do nothing
+        if (!SDL_PointInRect(&mouseButton, &rect)) break;
+
         if (event.button.button == SDL_BUTTON_LEFT) {
             if (m_isDragging) break;
-
-            SDL_Point mouseButton = { event.button.x, event.button.y };
-
-            // If clicked outside this segment, do nothing
-            if (!SDL_PointInRect(&mouseButton, &rect)) break;
 
             // If clicked in the left column, do nothing
             if (mouseButton.x < m_trackStartXPos) break;
@@ -340,6 +358,8 @@ void Timeline::handleEvent(SDL_Event& event) {
         if (m_isDragging && (!m_selectedVideoSegments.empty() || !m_selectedAudioSegments.empty())) {
             Uint32 currentFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
             if (mousePoint.x < rect.x + m_trackStartXPos) currentFrame = 0;
+
+            // TODO: allow vertical movement / moving between tracks
 
             Uint32 deltaFrames; // Amount of frames to move
             if (currentFrame < m_lastLegalFrame) { // Moving left
@@ -445,8 +465,9 @@ void Timeline::handleEvent(SDL_Event& event) {
 VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
     if (x < rect.x + m_trackStartXPos) return nullptr;
     if (y < rect.y + m_topBarheight) return nullptr;
-    int selectedTrack = (y - rect.y - m_topBarheight) / m_trackHeight;
-    if (selectedTrack >= m_videoTrackCount) return nullptr;
+    int selectedTrackPos = static_cast<int>(m_videoTrackPositionMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
+    if (selectedTrackPos >= m_videoTrackPositionMap.size()) return nullptr;
+    int selectedTrack = m_reverseVideoTrackPositionMap[selectedTrackPos];
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -462,9 +483,10 @@ VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
 
 AudioSegment* Timeline::getAudioSegmentAtPos(int x, int y) {
     if (x < rect.x + m_trackStartXPos) return nullptr;
-    if (y < rect.y + m_topBarheight + m_videoTrackCount * m_trackHeight) return nullptr;
-    int selectedTrack = (y - rect.y - m_topBarheight) / m_trackHeight - m_videoTrackCount;
-    if (selectedTrack >= m_audioTrackCount) return nullptr;
+    if (y < rect.y + m_topBarheight + m_videoTrackPositionMap.size() * m_trackHeight) return nullptr;
+    int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackPositionMap.size());
+    if (selectedTrackPos >= m_audioTrackPositionMap.size()) return nullptr;
+    int selectedTrack = m_reverseAudioTrackPositionMap[selectedTrackPos];
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -496,18 +518,78 @@ bool Timeline::isCollidingWithOtherSegments(AudioSegment* audioSegment) {
     return false;
 }
 
+void Timeline::addTrack(int trackID, int trackType, int videoOrAudio, bool above) {
+    if (videoOrAudio == 0 || videoOrAudio == 2) {
+        int newVideoTrackID = m_nextVideoTrackID++;
+
+        // Find the position to insert the new track
+        auto it = m_videoTrackPositionMap.find(trackID);
+        if (it != m_videoTrackPositionMap.end()) {
+            int pos = it->second; // Get position of the existing track
+            if (above) pos++;
+
+            // Insert the new track relative to existing one, shift positions of others
+            for (auto& entry : m_videoTrackPositionMap) {
+                if (entry.second >= pos) {
+                    m_reverseVideoTrackPositionMap.erase(entry.second); // Remove old position entry in reverse map
+                    entry.second++; // Shift the position of tracks after the insertion point
+                    m_reverseVideoTrackPositionMap[entry.second] = entry.first; // Update reverse map with the new position
+                }
+            }
+            m_videoTrackPositionMap[newVideoTrackID] = pos;
+            m_reverseVideoTrackPositionMap[pos] = newVideoTrackID;
+        }
+        else {
+            // Insert at the end: new track gets the next available position
+            m_videoTrackPositionMap[newVideoTrackID] = static_cast<int>(m_videoTrackPositionMap.size());
+            m_reverseVideoTrackPositionMap[static_cast<int>(m_videoTrackPositionMap.size())] = newVideoTrackID;
+        }
+    }
+    if (videoOrAudio == 1 || videoOrAudio == 2) {
+        int newAudioTrackID = m_nextAudioTrackID++;
+
+        // Find the position to insert the new track
+        auto it = m_audioTrackPositionMap.find(trackID);
+        if (it != m_audioTrackPositionMap.end()) {
+            int pos = it->second; // Get position of the existing track
+            if (above) pos++;
+
+            // Insert the new track relative to existing one, shift positions of others
+            for (auto& entry : m_audioTrackPositionMap) {
+                if (entry.second >= pos) {
+                    m_reverseAudioTrackPositionMap.erase(entry.second); // Remove old position entry in reverse map
+                    entry.second++; // Shift the position of tracks after the insertion point
+                    m_reverseAudioTrackPositionMap[entry.second] = entry.first; // Update reverse map with the new position
+                }
+            }
+            m_audioTrackPositionMap[newAudioTrackID] = pos;
+            m_reverseAudioTrackPositionMap[pos] = newAudioTrackID;
+        }
+        else {
+            // Insert at the end: new track gets the next available position
+            m_audioTrackPositionMap[newAudioTrackID] = static_cast<int>(m_audioTrackPositionMap.size());
+            m_reverseAudioTrackPositionMap[static_cast<int>(m_audioTrackPositionMap.size())] = newAudioTrackID;
+        }
+    }
+}
+
 // TODO: return only the video segment with the highest trackID at this time
 VideoSegment* Timeline::getCurrentVideoSegment() {
     Uint32 currentTime = getCurrentTime();
+    VideoSegment* currentVideoSegment = nullptr;
 
-    // Iterate over video segments to find which one is active at currentTime
+    // Iterate over video segments
     for (VideoSegment& segment : m_videoSegments) {
+        // Check if active at the current time
         if (currentTime >= segment.timelinePosition &&
             currentTime < segment.timelinePosition + segment.timelineDuration) {
-            return &segment;  // Return the active video segment
+            // Check if the found segment is higher on the track ordering
+            if (!currentVideoSegment || (m_reverseVideoTrackPositionMap[segment.trackID] > m_reverseVideoTrackPositionMap[currentVideoSegment->trackID])) {
+                currentVideoSegment = &segment; // Set this segment to be returned
+            }
         }
     }
-    return nullptr;  // No segment found at the current time
+    return currentVideoSegment;
 }
 
 // TODO: merge audio if multiple tracks have a audioSegment to play at this time
@@ -567,17 +649,21 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
 
     Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-    int trackID = 0; // If video -> videoTrackID   |   If audio -> audioTrackID   |   If video with audio -> videoTrackID == audioTrackID
+    int trackID = -1; // If video -> videoTrackID   |   If audio -> audioTrackID   |   If video with audio -> videoTrackID == audioTrackID
     // Iterate over video and audio tracks to find the trackID
-    for (int i = 0; i < m_videoTrackCount; i++) {
+    for (int i = 0; i < m_videoTrackPositionMap.size(); i++) {
         if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
-            trackID = i;
+            trackID = m_videoTrackPositionMap.size() - 1 - i;
         }
     }
-    for (int i = 0; i < m_audioTrackCount; i++) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackCount + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackCount + i + 1)) {
-            trackID = i;
+    for (int i = 0; i < m_audioTrackPositionMap.size(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i + 1)) {
+            trackID = m_audioTrackPositionMap.size() - 1 - i;
         }
+    }
+
+    if (trackID < 0) {
+        return false; // Not in a legitimate track (above first or below last track)
     }
 
     VideoSegment videoSegment;
