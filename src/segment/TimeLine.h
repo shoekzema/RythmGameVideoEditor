@@ -44,6 +44,16 @@ struct AudioSegment {
     }
 };
 
+enum TrackType {
+    VIDEO = 0,
+    AUDIO = 1
+};
+
+struct Track {
+    int trackID;
+    TrackType trackType;
+};
+
 /**
  * @class TimeLine
  * @brief Window segment that shows the timeline. Editing is mostly done here.
@@ -86,6 +96,7 @@ private:
     AudioSegment* getAudioSegmentAtPos(int x, int y);
     bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
     bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
+    Track GetTrackID(SDL_Point mousePoint);
 
     /**
      * @brief Add a new track to the timeline.
@@ -94,7 +105,7 @@ private:
      * @param above Where to put the new track relative to the selected Track.
      * @param videoOrAudio What type of track to add. 0 for video, 1 for audio, 2 for both (AV).
      */
-    void addTrack(int trackID, int trackType, int videoOrAudio, bool above = true);
+    void addTrack(Track track, int videoOrAudio, bool above = true);
 private:
     bool m_playing = false;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.

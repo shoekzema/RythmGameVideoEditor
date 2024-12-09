@@ -33,7 +33,7 @@ add_executable (RythmGameVideoEditor  "src/main.cpp"
     "src/segment/VideoPlayer.h" "src/segment/VideoPlayer.cpp" 
     "src/segment/TimeLine.h" "src/segment/Timeline.cpp" 
     "src/util.h" "src/util.cpp" 
-    "src/VideoData.h" "src/segment/SegmentIncludes.h")
+    "src/VideoData.h" "src/segment/SegmentIncludes.h" "src/PopupMenu.h")
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)

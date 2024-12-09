@@ -6,6 +6,7 @@
 #include <SDL_ttf.h>
 #include "Timeline.h"
 #include "util.h"
+#include "PopupMenu.h"
 
 Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color) 
@@ -341,6 +342,26 @@ void Timeline::handleEvent(SDL_Event& event) {
             m_selectedVideoSegments.clear();
             m_selectedAudioSegments.clear();
         }
+        else if (event.button.button == SDL_BUTTON_RIGHT) {
+            // If clicked in the left column
+            if (mouseButton.x < m_trackStartXPos) {
+                Track track = GetTrackID(mouseButton);
+                // If in a track, show Track options
+                if (track.trackID >= 0) {
+                    if (track.trackID < 0) break;
+                    if (track.trackID < 0) break;
+                    std::vector<PopupMenu::MenuItem> contextMenuOptions = {
+                        { "Add AV Track Above",    [this, track]() { addTrack(track, 2, true);  } },
+                        { "Add AV Track Below",    [this, track]() { addTrack(track, 2, false); } },
+                        { "Add Video Track Above", [this, track]() { addTrack(track, 0, true);  } },
+                        { "Add Video Track Below", [this, track]() { addTrack(track, 0, false); } },
+                        { "Add Audio Track Above", [this, track]() { addTrack(track, 1, true);  } },
+                        { "Add Audio Track Below", [this, track]() { addTrack(track, 1, false); } }
+                    };
+                    PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
+                }
+            }
+        }
         break;
     }
     case SDL_MOUSEMOTION: {
@@ -518,12 +539,12 @@ bool Timeline::isCollidingWithOtherSegments(AudioSegment* audioSegment) {
     return false;
 }
 
-void Timeline::addTrack(int trackID, int trackType, int videoOrAudio, bool above) {
+void Timeline::addTrack(Track track, int videoOrAudio, bool above) {
     if (videoOrAudio == 0 || videoOrAudio == 2) {
         int newVideoTrackID = m_nextVideoTrackID++;
 
         // Find the position to insert the new track
-        auto it = m_videoTrackPositionMap.find(trackID);
+        auto it = m_videoTrackPositionMap.find(track.trackID);
         if (it != m_videoTrackPositionMap.end()) {
             int pos = it->second; // Get position of the existing track
             if (above) pos++;
@@ -549,7 +570,7 @@ void Timeline::addTrack(int trackID, int trackType, int videoOrAudio, bool above
         int newAudioTrackID = m_nextAudioTrackID++;
 
         // Find the position to insert the new track
-        auto it = m_audioTrackPositionMap.find(trackID);
+        auto it = m_audioTrackPositionMap.find(track.trackID);
         if (it != m_audioTrackPositionMap.end()) {
             int pos = it->second; // Get position of the existing track
             if (above) pos++;
@@ -638,6 +659,26 @@ Segment* Timeline::findTypeImpl(const std::type_info& type) {
     return nullptr;
 }
 
+Track Timeline::GetTrackID(SDL_Point mousePoint) {
+    Track track;
+    track.trackID = -1;
+    // Iterate over video and audio tracks to find the trackID
+    for (int i = 0; i < m_videoTrackPositionMap.size(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
+            track.trackID = m_reverseVideoTrackPositionMap[m_videoTrackPositionMap.size() - 1 - i];
+            track.trackType = VIDEO;
+            return track;
+        }
+    }
+    for (int i = 0; i < m_audioTrackPositionMap.size(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i + 1)) {
+            track.trackID = m_reverseAudioTrackPositionMap[i];
+            track.trackType = AUDIO;
+            return track;
+        }
+    }
+}
+
 bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     SDL_Point mousePoint = { mouseX, mouseY };
 
@@ -649,18 +690,9 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
 
     Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-    int trackID = -1; // If video -> videoTrackID   |   If audio -> audioTrackID   |   If video with audio -> videoTrackID == audioTrackID
-    // Iterate over video and audio tracks to find the trackID
-    for (int i = 0; i < m_videoTrackPositionMap.size(); i++) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
-            trackID = m_videoTrackPositionMap.size() - 1 - i;
-        }
-    }
-    for (int i = 0; i < m_audioTrackPositionMap.size(); i++) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackPositionMap.size() + i + 1)) {
-            trackID = m_audioTrackPositionMap.size() - 1 - i;
-        }
-    }
+    // If video -> videoTrackID   |   If audio -> audioTrackID   |   If video with audio -> videoTrackID == audioTrackID
+    Track track = GetTrackID(mousePoint);
+    int trackID = track.trackID;
 
     if (trackID < 0) {
         return false; // Not in a legitimate track (above first or below last track)
