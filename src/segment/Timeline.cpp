@@ -386,10 +386,10 @@ void Timeline::handleEvent(SDL_Event& event) {
             if (currentFrame < m_lastLegalFrame) { // Moving left
                 deltaFrames = m_lastLegalFrame - currentFrame; // Absolute difference
                 if (deltaFrames > m_lastLegalLeftmostFrame) { // Would cause uint underflow
-                    deltaFrames = -m_lastLegalLeftmostFrame;
+                    deltaFrames = UINT32_MAX - m_lastLegalLeftmostFrame + 1; // equivalent to -m_lastLegalLeftmostFrame
                 }
                 else {
-                    deltaFrames = -deltaFrames;
+                    deltaFrames = UINT32_MAX - deltaFrames + 1; // equivalent to -deltaFrames
                 }
             }
             else { // Moving right
