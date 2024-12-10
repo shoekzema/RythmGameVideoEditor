@@ -112,8 +112,8 @@ private:
     std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments in the timeline.
     std::unordered_map<int, int> m_videoTrackIDtoPosMap; // Maps videoTrackID to its position order
     std::unordered_map<int, int> m_audioTrackIDtoPosMap; // Maps audioTrackID to its position order
-    std::unordered_map<int, int> m_VideoTrackPosToIDMap; // Maps position order to videoTrackID
-    std::unordered_map<int, int> m_AudioTrackPosToIDMap; // Maps position order audioTrackID
+    std::unordered_map<int, int> m_videoTrackPosToIDMap; // Maps position order to videoTrackID
+    std::unordered_map<int, int> m_audioTrackPosToIDMap; // Maps position order audioTrackID
     int m_nextVideoTrackID; // Keeps track of the next available videoTrackID
     int m_nextAudioTrackID; // Keeps track of the next available audioTrackID
     Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)

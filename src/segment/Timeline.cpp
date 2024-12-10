@@ -17,11 +17,11 @@ Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventMana
     m_audioTrackIDtoPosMap[0] = 0;
     m_audioTrackIDtoPosMap[1] = 1;
 
-    m_VideoTrackPosToIDMap[0] = 0;
-    m_VideoTrackPosToIDMap[1] = 1;
+    m_videoTrackPosToIDMap[0] = 0;
+    m_videoTrackPosToIDMap[1] = 1;
 
-    m_AudioTrackPosToIDMap[0] = 0;
-    m_AudioTrackPosToIDMap[1] = 1;
+    m_audioTrackPosToIDMap[0] = 0;
+    m_audioTrackPosToIDMap[1] = 1;
 
     m_nextVideoTrackID = 2;
     m_nextAudioTrackID = 2;
@@ -488,7 +488,7 @@ VideoSegment* Timeline::getVideoSegmentAtPos(int x, int y) {
     if (y < rect.y + m_topBarheight) return nullptr;
     int selectedTrackPos = static_cast<int>(m_videoTrackIDtoPosMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
     if (selectedTrackPos >= m_videoTrackIDtoPosMap.size()) return nullptr;
-    int selectedTrack = m_VideoTrackPosToIDMap[selectedTrackPos];
+    int selectedTrack = m_videoTrackPosToIDMap[selectedTrackPos];
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -507,7 +507,7 @@ AudioSegment* Timeline::getAudioSegmentAtPos(int x, int y) {
     if (y < rect.y + m_topBarheight + m_videoTrackIDtoPosMap.size() * m_trackHeight) return nullptr;
     int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackIDtoPosMap.size());
     if (selectedTrackPos >= m_audioTrackIDtoPosMap.size()) return nullptr;
-    int selectedTrack = m_AudioTrackPosToIDMap[selectedTrackPos];
+    int selectedTrack = m_audioTrackPosToIDMap[selectedTrackPos];
 
     Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
@@ -552,18 +552,18 @@ void Timeline::addTrack(Track track, int videoOrAudio, bool above) {
             // Insert the new track relative to existing one, shift positions of others
             for (auto& entry : m_videoTrackIDtoPosMap) {
                 if (entry.second >= pos) {
-                    m_VideoTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
+                    m_videoTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
                     entry.second++; // Shift the position of tracks after the insertion point
-                    m_VideoTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
+                    m_videoTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
                 }
             }
             m_videoTrackIDtoPosMap[newVideoTrackID] = pos;
-            m_VideoTrackPosToIDMap[pos] = newVideoTrackID;
+            m_videoTrackPosToIDMap[pos] = newVideoTrackID;
         }
         else {
             // Insert at the end: new track gets the next available position
             m_videoTrackIDtoPosMap[newVideoTrackID] = static_cast<int>(m_videoTrackIDtoPosMap.size());
-            m_VideoTrackPosToIDMap[static_cast<int>(m_videoTrackIDtoPosMap.size())] = newVideoTrackID;
+            m_videoTrackPosToIDMap[static_cast<int>(m_videoTrackIDtoPosMap.size())] = newVideoTrackID;
         }
     }
     if (videoOrAudio == 1 || videoOrAudio == 2) {
@@ -573,23 +573,23 @@ void Timeline::addTrack(Track track, int videoOrAudio, bool above) {
         auto it = m_audioTrackIDtoPosMap.find(track.trackID);
         if (it != m_audioTrackIDtoPosMap.end()) {
             int pos = it->second; // Get position of the existing track
-            if (above) pos++;
+            if (!above) pos++;
 
             // Insert the new track relative to existing one, shift positions of others
             for (auto& entry : m_audioTrackIDtoPosMap) {
                 if (entry.second >= pos) {
-                    m_AudioTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
+                    m_audioTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
                     entry.second++; // Shift the position of tracks after the insertion point
-                    m_AudioTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
+                    m_audioTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
                 }
             }
             m_audioTrackIDtoPosMap[newAudioTrackID] = pos;
-            m_AudioTrackPosToIDMap[pos] = newAudioTrackID;
+            m_audioTrackPosToIDMap[pos] = newAudioTrackID;
         }
         else {
             // Insert at the end: new track gets the next available position
             m_audioTrackIDtoPosMap[newAudioTrackID] = static_cast<int>(m_audioTrackIDtoPosMap.size());
-            m_AudioTrackPosToIDMap[static_cast<int>(m_audioTrackIDtoPosMap.size())] = newAudioTrackID;
+            m_audioTrackPosToIDMap[static_cast<int>(m_audioTrackIDtoPosMap.size())] = newAudioTrackID;
         }
     }
 }
@@ -605,7 +605,7 @@ VideoSegment* Timeline::getCurrentVideoSegment() {
         if (currentTime >= segment.timelinePosition &&
             currentTime < segment.timelinePosition + segment.timelineDuration) {
             // Check if the found segment is higher on the track ordering
-            if (!currentVideoSegment || (m_VideoTrackPosToIDMap[segment.trackID] > m_VideoTrackPosToIDMap[currentVideoSegment->trackID])) {
+            if (!currentVideoSegment || (m_videoTrackPosToIDMap[segment.trackID] > m_videoTrackPosToIDMap[currentVideoSegment->trackID])) {
                 currentVideoSegment = &segment; // Set this segment to be returned
             }
         }
@@ -665,18 +665,21 @@ Track Timeline::GetTrackID(SDL_Point mousePoint) {
     // Iterate over video and audio tracks to find the trackID
     for (int i = 0; i < m_videoTrackIDtoPosMap.size(); i++) {
         if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
-            track.trackID = m_VideoTrackPosToIDMap[m_videoTrackIDtoPosMap.size() - 1 - i];
+            track.trackID = m_videoTrackPosToIDMap[static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - i];
             track.trackType = VIDEO;
             return track;
         }
     }
     for (int i = 0; i < m_audioTrackIDtoPosMap.size(); i++) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackIDtoPosMap.size() + i) && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_videoTrackIDtoPosMap.size() + i + 1)) {
-            track.trackID = m_AudioTrackPosToIDMap[i];
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (static_cast<int>(m_videoTrackIDtoPosMap.size()) + i) && 
+            mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (static_cast<int>(m_videoTrackIDtoPosMap.size()) + i + 1)) 
+        {
+            track.trackID = m_audioTrackPosToIDMap[i];
             track.trackType = AUDIO;
             return track;
         }
     }
+    return track;
 }
 
 bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
@@ -690,12 +693,22 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
 
     Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-    // If video -> videoTrackID   |   If audio -> audioTrackID   |   If video with audio -> videoTrackID == audioTrackID
     Track track = GetTrackID(mousePoint);
-    int trackID = track.trackID;
+    int videoTrackID = track.trackID;
+    int audioTrackID = track.trackID;
 
-    if (trackID < 0) {
+    if (videoTrackID < 0) {
         return false; // Not in a legitimate track (above first or below last track)
+    }
+    if (!data->videoData && track.trackType == VIDEO) return false; // Cannot drop audio only files in video tracks
+    if (!data->audioData && track.trackType == AUDIO) return false; // Cannot drop video only files in audio tracks
+    if (data->videoData && data->audioData) {
+        if (track.trackType == VIDEO) {
+            audioTrackID = m_audioTrackPosToIDMap[m_videoTrackIDtoPosMap[videoTrackID]];
+        }
+        else if (track.trackType == AUDIO) {
+            videoTrackID = m_videoTrackPosToIDMap[m_audioTrackIDtoPosMap[audioTrackID]];
+        }
     }
 
     VideoSegment videoSegment;
@@ -711,7 +724,7 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
             .timelinePosition = selectedFrame,
             .timelineDuration = data->videoData->getVideoDurationInFrames(m_fps),
             .fps = data->videoData->getFPS(),
-            .trackID = trackID
+            .trackID = videoTrackID
         };
         videoSegment.firstFrame = videoSegment.videoData->getFrameTexture(p_renderer, 0);
         videoSegment.lastFrame  = videoSegment.videoData->getFrameTexture(p_renderer, videoSegment.duration - 1);
@@ -728,7 +741,7 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
             .duration = data->audioData->getAudioDurationInFrames(),
             .timelinePosition = selectedFrame,
             .timelineDuration = data->audioData->getAudioDurationInFrames(m_fps),
-            .trackID = trackID
+            .trackID = audioTrackID
         };
 
         // Cannot drop here, because it would overlap with another segment
