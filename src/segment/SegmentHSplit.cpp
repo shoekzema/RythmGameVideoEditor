@@ -6,7 +6,7 @@ SegmentHSplit::SegmentHSplit(int x, int y, int w, int h, SDL_Renderer* renderer,
     : Segment(x, y, w, h, renderer, eventManager, parent, color)
 {
     m_divider = { x, y + h / 2 - m_dividerThickness / 2, w, m_dividerThickness };
-    m_topSegment    = new Segment(x, y,                                w, h / 2 - m_dividerThickness / 2, renderer, eventManager, this);
+    m_topSegment    = new Segment(x, y,                                  w, h / 2 - m_dividerThickness / 2, renderer, eventManager, this);
     m_bottomSegment = new Segment(x, y + h / 2 + m_dividerThickness / 2, w, h / 2 - m_dividerThickness / 2, renderer, eventManager, this);
 }
 
@@ -64,7 +64,7 @@ void SegmentHSplit::handleEvent(SDL_Event& event) {
                 int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.y, appWindowSizeY - m_dividerThickness / 2)) - rect.y - m_divider.h / 2;
                 m_divider.y = newMiddle;
                 m_topSegment->update(m_topSegment->rect.x, m_topSegment->rect.y, m_topSegment->rect.w, newMiddle);
-                m_bottomSegment->update(m_bottomSegment->rect.x, newMiddle, m_bottomSegment->rect.w, rect.h - newMiddle);
+                m_bottomSegment->update(m_bottomSegment->rect.x, newMiddle + m_dividerThickness, m_bottomSegment->rect.w, rect.h - newMiddle - m_dividerThickness);
             }
             else if (SDL_PointInRect(&mouseMotion, &m_divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZENS));

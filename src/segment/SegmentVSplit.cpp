@@ -61,7 +61,7 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
                 int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness / 2)) - rect.x - m_divider.w / 2;
                 m_divider.x = newMiddle;
                 m_leftSegment->update(m_leftSegment->rect.x, m_leftSegment->rect.y, newMiddle, m_leftSegment->rect.h);
-                m_rightSegment->update(newMiddle, m_rightSegment->rect.y, rect.w - newMiddle, m_rightSegment->rect.h);
+                m_rightSegment->update(newMiddle + m_dividerThickness, m_rightSegment->rect.y, rect.w - newMiddle - m_dividerThickness, m_rightSegment->rect.h);
             }
             else if (SDL_PointInRect(&mouseMotion, &m_divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE));
