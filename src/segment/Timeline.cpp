@@ -351,12 +351,14 @@ void Timeline::handleEvent(SDL_Event& event) {
                     if (track.trackID < 0) break;
                     if (track.trackID < 0) break;
                     std::vector<PopupMenu::MenuItem> contextMenuOptions = {
-                        { "Add AV Track Above",    [this, track]() { addTrack(track, 2, true);  } },
-                        { "Add AV Track Below",    [this, track]() { addTrack(track, 2, false); } },
-                        { "Add Video Track Above", [this, track]() { addTrack(track, 0, true);  } },
-                        { "Add Video Track Below", [this, track]() { addTrack(track, 0, false); } },
-                        { "Add Audio Track Above", [this, track]() { addTrack(track, 1, true);  } },
-                        { "Add Audio Track Below", [this, track]() { addTrack(track, 1, false); } }
+                        { "Add Track", nullptr, {
+                            { "Add AV Track Above",    [this, track]() { addTrack(track, 2, true);  } },
+                            { "Add AV Track Below",    [this, track]() { addTrack(track, 2, false); } },
+                            { "Add Video Track Above", [this, track]() { addTrack(track, 0, true);  } },
+                            { "Add Video Track Below", [this, track]() { addTrack(track, 0, false); } },
+                            { "Add Audio Track Above", [this, track]() { addTrack(track, 1, true);  } },
+                            { "Add Audio Track Below", [this, track]() { addTrack(track, 1, false); } }
+                        }}
                     };
                     PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
                 }

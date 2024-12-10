@@ -9,6 +9,7 @@ public:
     struct MenuItem {
         std::string label;
         std::function<void()> action; // Function to execute on selection
+        std::vector<MenuItem> submenu; // Submenu items
     };
 public:
     // Static method to get the singleton instance
@@ -36,28 +37,12 @@ public:
         auto& instance = getInstance(renderer);
         if (!instance.m_isVisible) return;
 
-        SDL_Rect outlineRect = {
-            instance.m_mousePoint.x,
-            instance.m_mousePoint.y,
-            instance.m_windowWidth,
-            instance.m_optionHeight * static_cast<int>(instance.m_items.size())
-        };
-        SDL_SetRenderDrawColor(instance.m_renderer, instance.m_outlineColor.r, instance.m_outlineColor.g, instance.m_outlineColor.b, instance.m_outlineColor.a);
-        SDL_RenderFillRect(instance.m_renderer, &outlineRect);
+        // Render the main menu
+        instance.renderMenu(instance.m_renderer, instance.m_mousePoint.x, instance.m_mousePoint.y, instance.m_items);
 
-        SDL_Rect backgroundRect = { 
-            instance.m_mousePoint.x + 1, 
-            instance.m_mousePoint.y + 1, 
-            instance.m_windowWidth - 2, 
-            instance.m_optionHeight * static_cast<int>(instance.m_items.size() - 2)
-        };
-        SDL_SetRenderDrawColor(instance.m_renderer, instance.m_backgroundColor.r, instance.m_backgroundColor.g, instance.m_backgroundColor.b, instance.m_backgroundColor.a);
-        SDL_RenderFillRect(instance.m_renderer, &backgroundRect);
-
-        int textY = instance.m_mousePoint.y;
-        for (const auto& item : instance.m_items) {
-            renderText(instance.m_renderer, instance.m_mousePoint.x + instance.m_textXPos, textY, getFont(), item.label.c_str());
-            textY += instance.m_optionHeight;
+        // Render any active submenu
+        if (instance.m_activeSubmenu) {
+            instance.renderMenu(instance.m_renderer, instance.m_submenuPoint.x, instance.m_submenuPoint.y, *instance.m_activeSubmenu);
         }
     }
 
@@ -65,34 +50,135 @@ public:
         auto& instance = getInstance();
         if (!instance.m_isVisible) return;
 
-        if (event.type == SDL_MOUSEBUTTONDOWN) {
+        if (event.type == SDL_MOUSEMOTION) {
+            int mouseX = event.motion.x;
+            int mouseY = event.motion.y;
+            instance.handleHover(instance.m_mousePoint.x, instance.m_mousePoint.y, mouseX, mouseY, instance.m_items);
+        }
+        else if (event.type == SDL_MOUSEBUTTONDOWN) {
             int mouseX = event.button.x;
             int mouseY = event.button.y;
             if (event.button.button == SDL_BUTTON_LEFT) {
-                for (int i = 0; i < instance.m_items.size(); ++i) {
-                    SDL_Rect itemRect = { 
-                        instance.m_mousePoint.x, 
-                        instance.m_mousePoint.y + i * instance.m_optionHeight,
-                        instance.m_windowWidth, 
-                        instance.m_optionHeight 
-                    };
-                    if (mouseX >= itemRect.x && mouseX <= itemRect.x + itemRect.w &&
-                        mouseY >= itemRect.y && mouseY <= itemRect.y + itemRect.h) {
-                        instance.m_items[i].action();
-                        hide();
-                        return;
-                    }
+                // Handle click on main menu or submenu
+                if (!instance.handleClick(instance.m_mousePoint.x, instance.m_mousePoint.y, mouseX, mouseY, instance.m_items)) {
+                    instance.hide();
                 }
-                hide();
             }
         }
     }
 private:
     PopupMenu(SDL_Renderer* renderer) : m_renderer(renderer) {}
+
+    void renderMenu(SDL_Renderer* renderer, int x, int y, const std::vector<MenuItem>& items) {
+        SDL_Rect outlineRect = {
+            x, y,
+            m_windowWidth,
+            m_optionHeight * static_cast<int>(items.size())
+        };
+        SDL_SetRenderDrawColor(renderer, m_outlineColor.r, m_outlineColor.g, m_outlineColor.b, m_outlineColor.a);
+        SDL_RenderFillRect(renderer, &outlineRect);
+
+        SDL_Rect backgroundRect = {
+            x + 1, y + 1,
+            m_windowWidth - 2,
+            m_optionHeight * static_cast<int>(items.size())
+        };
+        SDL_SetRenderDrawColor(renderer, m_backgroundColor.r, m_backgroundColor.g, m_backgroundColor.b, m_backgroundColor.a);
+        SDL_RenderFillRect(renderer, &backgroundRect);
+
+        int textY = y;
+        for (const auto& item : items) {
+            renderText(renderer, x + m_textXPos, textY, getFont(), item.label.c_str());
+
+            // Render an indicator for submenus
+            if (!item.submenu.empty()) {
+                renderText(renderer, x + m_windowWidth - 20, textY, getFont(), ">"); // ">" indicates a submenu
+            }
+
+            textY += m_optionHeight;
+        }
+    }
+
+    void handleHover(int menuX, int menuY, int mouseX, int mouseY, const std::vector<MenuItem>& items) {
+        int textY = menuY;
+
+        for (const auto& item : items) {
+            SDL_Rect itemRect = {
+                menuX, textY,
+                m_windowWidth,
+                m_optionHeight
+            };
+
+            if (mouseX >= itemRect.x && mouseX <= itemRect.x + itemRect.w &&
+                mouseY >= itemRect.y && mouseY <= itemRect.y + itemRect.h) {
+                // If the item has a submenu, show it
+                if (!item.submenu.empty()) {
+                    m_activeSubmenu = &item.submenu;
+                    m_submenuPoint = { menuX + m_windowWidth, textY };
+                }
+                return;
+            }
+
+            textY += m_optionHeight;
+        }
+
+        // Check if the mouse is over the active submenu
+        if (m_activeSubmenu) {
+            SDL_Rect submenuRect = {
+                m_submenuPoint.x, m_submenuPoint.y,
+                m_windowWidth,
+                static_cast<int>(m_activeSubmenu->size()) * m_optionHeight
+            };
+
+            if (mouseX >= submenuRect.x && mouseX <= submenuRect.x + submenuRect.w &&
+                mouseY >= submenuRect.y && mouseY <= submenuRect.y + submenuRect.h) {
+                // Keep the submenu visible if the mouse is over it
+                return;
+            }
+        }
+
+        // If the mouse is not over any item or submenu, hide the submenu
+        m_activeSubmenu = nullptr;
+    }
+
+    bool handleClick(int menuX, int menuY, int mouseX, int mouseY, const std::vector<MenuItem>& items) {
+        int textY = menuY;
+
+        for (const auto& item : items) {
+            SDL_Rect itemRect = {
+                menuX, textY,
+                m_windowWidth,
+                m_optionHeight
+            };
+
+            if (mouseX >= itemRect.x && mouseX <= itemRect.x + itemRect.w &&
+                mouseY >= itemRect.y && mouseY <= itemRect.y + itemRect.h) {
+                if (!item.submenu.empty()) {
+                    // Do not close menu, let the user interact with the submenu
+                    return true;
+                }
+                else {
+                    item.action();
+                    return false;
+                }
+            }
+
+            textY += m_optionHeight;
+        }
+
+        // Check clicks in the submenu
+        if (m_activeSubmenu) {
+            return handleClick(m_submenuPoint.x, m_submenuPoint.y, mouseX, mouseY, *m_activeSubmenu);
+        }
+
+        return false;
+    }
 private:
     SDL_Renderer* m_renderer;
     SDL_Point m_mousePoint = { 0, 0 };
+    SDL_Point m_submenuPoint = { 0, 0 }; // Position of the active submenu
     std::vector<MenuItem> m_items;
+    const std::vector<MenuItem>* m_activeSubmenu = nullptr; // Current active submenu
     bool m_isVisible = false;
     int m_windowWidth = 200;
     int m_optionHeight = 24;
