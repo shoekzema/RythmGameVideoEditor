@@ -38,11 +38,11 @@ public:
         if (!instance.m_isVisible) return;
 
         // Render the main menu
-        instance.renderMenu(instance.m_renderer, instance.m_mousePoint.x, instance.m_mousePoint.y, instance.m_items);
+        instance.renderMenu(instance.m_renderer, instance.m_mousePoint.x, instance.m_mousePoint.y, instance.m_items, instance.m_hoveredIndex);
 
         // Render any active submenu
         if (instance.m_activeSubmenu) {
-            instance.renderMenu(instance.m_renderer, instance.m_submenuPoint.x, instance.m_submenuPoint.y, *instance.m_activeSubmenu);
+            instance.renderMenu(instance.m_renderer, instance.m_submenuPoint.x, instance.m_submenuPoint.y, *instance.m_activeSubmenu, instance.m_submenuHoveredIndex);
         }
     }
 
@@ -69,7 +69,7 @@ public:
 private:
     PopupMenu(SDL_Renderer* renderer) : m_renderer(renderer) {}
 
-    void renderMenu(SDL_Renderer* renderer, int x, int y, const std::vector<MenuItem>& items) {
+    void renderMenu(SDL_Renderer* renderer, int x, int y, const std::vector<MenuItem>& items, int hoveredIndex) {
         SDL_Rect outlineRect = {
             x, y,
             m_windowWidth,
@@ -81,17 +81,28 @@ private:
         SDL_Rect backgroundRect = {
             x + 1, y + 1,
             m_windowWidth - 2,
-            m_optionHeight * static_cast<int>(items.size())
+            m_optionHeight * static_cast<int>(items.size()) - 2
         };
         SDL_SetRenderDrawColor(renderer, m_backgroundColor.r, m_backgroundColor.g, m_backgroundColor.b, m_backgroundColor.a);
         SDL_RenderFillRect(renderer, &backgroundRect);
 
         int textY = y;
-        for (const auto& item : items) {
-            renderText(renderer, x + m_textXPos, textY, getFont(), item.label.c_str());
+        for (int i = 0; i < items.size(); i++) {
+            // Highlight the hovered item
+            if (i == hoveredIndex) {
+                SDL_SetRenderDrawColor(renderer, m_selectedColor.r, m_selectedColor.g, m_selectedColor.b, m_selectedColor.a);
+                SDL_Rect highlightRect = { 
+                    x + 1, textY + 1, 
+                    m_windowWidth - 2, 
+                    m_optionHeight - 2 
+                };
+                SDL_RenderFillRect(renderer, &highlightRect);
+            }
+
+            renderText(renderer, x + m_textXPos, textY, getFont(), items[i].label.c_str());
 
             // Render an indicator for submenus
-            if (!item.submenu.empty()) {
+            if (!items[i].submenu.empty()) {
                 renderText(renderer, x + m_windowWidth - 20, textY, getFont(), ">"); // ">" indicates a submenu
             }
 
@@ -102,7 +113,7 @@ private:
     void handleHover(int menuX, int menuY, int mouseX, int mouseY, const std::vector<MenuItem>& items) {
         int textY = menuY;
 
-        for (const auto& item : items) {
+        for (int i = 0; i < items.size(); ++i) {
             SDL_Rect itemRect = {
                 menuX, textY,
                 m_windowWidth,
@@ -110,11 +121,18 @@ private:
             };
 
             if (mouseX >= itemRect.x && mouseX <= itemRect.x + itemRect.w &&
-                mouseY >= itemRect.y && mouseY <= itemRect.y + itemRect.h) {
+                mouseY >= itemRect.y && mouseY <= itemRect.y + itemRect.h) 
+            {
+                m_hoveredIndex = i;
+
                 // If the item has a submenu, show it
-                if (!item.submenu.empty()) {
-                    m_activeSubmenu = &item.submenu;
+                if (!items[i].submenu.empty()) {
+                    m_activeSubmenu = &items[i].submenu;
                     m_submenuPoint = { menuX + m_windowWidth, textY };
+                }
+                else {
+                    m_activeSubmenu = nullptr; // Hide submenu if no submenu for this item
+                    m_submenuHoveredIndex = -1;
                 }
                 return;
             }
@@ -131,14 +149,32 @@ private:
             };
 
             if (mouseX >= submenuRect.x && mouseX <= submenuRect.x + submenuRect.w &&
-                mouseY >= submenuRect.y && mouseY <= submenuRect.y + submenuRect.h) {
-                // Keep the submenu visible if the mouse is over it
-                return;
+                mouseY >= submenuRect.y && mouseY <= submenuRect.y + submenuRect.h) 
+            {
+                // Determine which submenu item is hovered
+                textY = m_submenuPoint.y;
+                for (int i = 0; i < m_activeSubmenu->size(); ++i) {
+                    SDL_Rect submenuItemRect = {
+                        m_submenuPoint.x, textY,
+                        m_windowWidth,
+                        m_optionHeight
+                    };
+
+                    if (mouseX >= submenuItemRect.x && mouseX <= submenuItemRect.x + submenuItemRect.w &&
+                        mouseY >= submenuItemRect.y && mouseY <= submenuItemRect.y + submenuItemRect.h) {
+                        m_submenuHoveredIndex = i;
+                        return;
+                    }
+
+                    textY += m_optionHeight;
+                }
             }
         }
 
         // If the mouse is not over any item or submenu, hide the submenu
         m_activeSubmenu = nullptr;
+        m_submenuHoveredIndex = -1;
+        m_hoveredIndex = -1;
     }
 
     bool handleClick(int menuX, int menuY, int mouseX, int mouseY, const std::vector<MenuItem>& items) {
@@ -158,7 +194,7 @@ private:
                     return true;
                 }
                 else {
-                    item.action();
+                    if (item.action) item.action();
                     return false;
                 }
             }
@@ -183,7 +219,12 @@ private:
     int m_windowWidth = 200;
     int m_optionHeight = 24;
     int m_textXPos = 10;
+    int m_highlightBoxXPos = 3;
+    int m_highlightBoxYPos = 3;
+    int m_hoveredIndex = -1;        // Index of the hovered item in the main menu
+    int m_submenuHoveredIndex = -1; // Index of the hovered item in a submenu
 
     SDL_Color m_outlineColor    = { 95, 98, 101, 255 };
     SDL_Color m_backgroundColor = { 38, 41,  45, 255 };
+    SDL_Color m_selectedColor   = { 45, 81, 101, 255 };
 };

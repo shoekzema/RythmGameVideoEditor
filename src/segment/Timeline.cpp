@@ -358,7 +358,8 @@ void Timeline::handleEvent(SDL_Event& event) {
                             { "Add Video Track Below", [this, track]() { addTrack(track, 0, false); } },
                             { "Add Audio Track Above", [this, track]() { addTrack(track, 1, true);  } },
                             { "Add Audio Track Below", [this, track]() { addTrack(track, 1, false); } }
-                        }}
+                        }},
+                        { "Delete Track", nullptr }
                     };
                     PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
                 }
