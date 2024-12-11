@@ -40,17 +40,17 @@ bool Application::init() {
     TTF_Init();
 
     // Load a font
-    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 13);
+    m_font = TTF_OpenFont("assets/fonts/SegoeUIVF.ttf", 13);
     if (!m_font) {
         printf("Failed to load font: %s\n", TTF_GetError());
         return false;
     }
     setFont(m_font);
 
-    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 16);
+    m_font = TTF_OpenFont("assets/fonts/SegoeUIVF.ttf", 16);
     setFontBig(m_font);
 
-    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 10);
+    m_font = TTF_OpenFont("assets/fonts/SegoeUIVF.ttf", 10);
     setFontSmall(m_font);
 
     return true;
