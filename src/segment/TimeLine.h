@@ -106,6 +106,8 @@ private:
      * @param videoOrAudio What type of track to add. 0 for video, 1 for audio, 2 for both (AV).
      */
     void addTrack(Track track, int videoOrAudio, bool above = true);
+
+    void deleteTrack(Track track);
 private:
     bool m_playing = false;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.

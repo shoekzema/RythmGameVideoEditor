@@ -359,7 +359,7 @@ void Timeline::handleEvent(SDL_Event& event) {
                             { "Add Audio Track Above", [this, track]() { addTrack(track, 1, true);  } },
                             { "Add Audio Track Below", [this, track]() { addTrack(track, 1, false); } }
                         }},
-                        { "Delete Track", nullptr }
+                        { "Delete Track", [this, track]() { deleteTrack(track); } }
                     };
                     PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
                 }
@@ -594,6 +594,73 @@ void Timeline::addTrack(Track track, int videoOrAudio, bool above) {
             m_audioTrackIDtoPosMap[newAudioTrackID] = static_cast<int>(m_audioTrackIDtoPosMap.size());
             m_audioTrackPosToIDMap[static_cast<int>(m_audioTrackIDtoPosMap.size())] = newAudioTrackID;
         }
+    }
+}
+
+void Timeline::deleteTrack(Track track) {
+    if (track.trackType == VIDEO) {
+        // Remove video segments 
+        m_videoSegments.erase(
+            std::remove_if(m_videoSegments.begin(), m_videoSegments.end(),
+                [track](const VideoSegment& item) {
+                    return item.trackID == track.trackID;
+                }),
+            m_videoSegments.end()
+        );
+
+        // Remove the track from the maps
+        int trackPos = m_videoTrackIDtoPosMap[track.trackID];
+        if (!m_videoTrackIDtoPosMap.erase(track.trackID)) {
+            std::cout << "Track ID " << track.trackID << " not found.\n";
+        }
+        if (!m_videoTrackPosToIDMap.erase(trackPos)) {
+            std::cout << "Track Pos " << trackPos << " not found.\n";
+        }
+
+        // Shift track positions down
+        std::unordered_map<int, int> updatedTrackPosToIDmap;
+        for (const auto& [pos, id] : m_videoTrackPosToIDMap) {
+            if (pos > trackPos) {
+                updatedTrackPosToIDmap[pos - 1] = id;
+                m_videoTrackIDtoPosMap[id] = pos - 1;
+            }
+            else {
+                updatedTrackPosToIDmap[pos] = id;
+            }
+        }
+        m_videoTrackPosToIDMap = std::move(updatedTrackPosToIDmap);
+    }
+    else if (track.trackType == AUDIO) {
+        // Remove audio segments 
+        m_audioSegments.erase(
+            std::remove_if(m_audioSegments.begin(), m_audioSegments.end(),
+                [track](const AudioSegment& item) {
+                    return item.trackID == track.trackID;
+                }),
+            m_audioSegments.end()
+        );
+
+        // Remove the track from the maps
+        int trackPos = m_audioTrackIDtoPosMap[track.trackID];
+        if (!m_audioTrackIDtoPosMap.erase(track.trackID)) {
+            std::cout << "Track ID " << track.trackID << " not found.\n";
+        }
+        if (!m_audioTrackPosToIDMap.erase(trackPos)) {
+            std::cout << "Track Pos " << trackPos << " not found.\n";
+        }
+
+        // Shift track positions down
+        std::unordered_map<int, int> updatedTrackPosToIDmap;
+        for (const auto& [pos, id] : m_audioTrackPosToIDMap) {
+            if (pos > trackPos) {
+                updatedTrackPosToIDmap[pos - 1] = id;
+                m_audioTrackIDtoPosMap[id] = pos - 1;
+            }
+            else {
+                updatedTrackPosToIDmap[pos] = id;
+            }
+        }
+        m_audioTrackPosToIDMap = std::move(updatedTrackPosToIDmap);
     }
 }
 
