@@ -695,6 +695,8 @@ void Timeline::addTrack(Track track, int videoOrAudio, bool above) {
 
 void Timeline::deleteTrack(Track track) {
     if (track.trackType == VIDEO) {
+        if (m_videoTrackIDtoPosMap.size() <= 1) return; // Cannot remove the track if it is the only video track
+
         // Remove video segments 
         m_videoSegments.erase(
             std::remove_if(m_videoSegments.begin(), m_videoSegments.end(),
@@ -727,6 +729,8 @@ void Timeline::deleteTrack(Track track) {
         m_videoTrackPosToIDMap = std::move(updatedTrackPosToIDmap);
     }
     else if (track.trackType == AUDIO) {
+        if (m_audioTrackIDtoPosMap.size() <= 1) return; // Cannot remove the track if it is the only audio track
+
         // Remove audio segments 
         m_audioSegments.erase(
             std::remove_if(m_audioSegments.begin(), m_audioSegments.end(),
