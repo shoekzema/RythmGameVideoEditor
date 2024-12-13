@@ -96,7 +96,8 @@ private:
     AudioSegment* getAudioSegmentAtPos(int x, int y);
     bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
     bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
-    Track GetTrackID(SDL_Point mousePoint);
+    Track getTrackID(SDL_Point mousePoint);
+    int getTrackPos(int y);
 
     /**
      * @brief Add a new track to the timeline.
@@ -130,7 +131,9 @@ private:
     bool m_isDragging = false;
     int m_draggingThreshold = 20; // Pixel threshold for dragging segments
     int m_mouseHoldStartX = 0;
-    int m_mouseHoldStartTrackID = 0;
+    int m_lastLegalTrackPos = 0; // The last track order position to which moving the selected segments was legal
+    int m_selectedMaxTrackPos = 0; // Highest trackPos of the selected segments (for vertical movement)
+    int m_selectedMinTrackPos = 0; // Lowest trackPos of the selected segments (for vertical movement)
     Uint32 m_lastLegalFrame = 0; // The last frame selected to which moving the selected segments was legal
     Uint32 m_lastLegalLeftmostFrame = 0; // The last earliest/leftmost frame of all selected segments, to which moving was legal
 

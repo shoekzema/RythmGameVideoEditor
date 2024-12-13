@@ -287,16 +287,26 @@ void Timeline::handleEvent(SDL_Event& event) {
                     // Start holding/dragging logic
                     m_isHolding = true;
                     m_mouseHoldStartX = mouseButton.x;
-                    m_mouseHoldStartTrackID = 0; // TODO
+                    int trackPos = m_videoTrackIDtoPosMap[clickedVideoSegment->trackID];
+                    m_lastLegalTrackPos = trackPos;
+                    m_selectedMaxTrackPos = trackPos;
+                    m_selectedMinTrackPos = trackPos;
                     m_lastLegalFrame = clickedFrame;
                     m_lastLegalLeftmostFrame = clickedFrame;
 
                     // Find the earliest/leftmost frame position of all selected segments
+                    // Also find the highest and lowest track order positions
                     for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
                         if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+                        int segmentTrackPos = m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID];
+                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
                     }
                     for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
                         if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+                        int segmentTrackPos = m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID];
+                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
                     }
                 }
                 break;
@@ -321,16 +331,25 @@ void Timeline::handleEvent(SDL_Event& event) {
                     }
                     m_isHolding = true;
                     m_mouseHoldStartX = mouseButton.x;
-                    m_mouseHoldStartTrackID = 0; // TODO
+                    int trackPos = m_audioTrackIDtoPosMap[clickedAudioSegment->trackID];
+                    m_lastLegalTrackPos = trackPos;
+                    m_selectedMaxTrackPos = trackPos;
+                    m_selectedMinTrackPos = trackPos;
                     m_lastLegalFrame = clickedFrame;
                     m_lastLegalLeftmostFrame = clickedFrame;
 
                     // Find the earliest/leftmost frame position of all selected segments
                     for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
                         if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+                        int segmentTrackPos = m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID];
+                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
                     }
                     for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
                         if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+                        int segmentTrackPos = m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID];
+                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
                     }
                 }
                 break;
@@ -345,7 +364,7 @@ void Timeline::handleEvent(SDL_Event& event) {
         else if (event.button.button == SDL_BUTTON_RIGHT) {
             // If clicked in the left column
             if (mouseButton.x < m_trackStartXPos) {
-                Track track = GetTrackID(mouseButton);
+                Track track = getTrackID(mouseButton);
                 // If in a track, show Track options
                 if (track.trackID >= 0) {
                     if (track.trackID < 0) break;
@@ -371,8 +390,87 @@ void Timeline::handleEvent(SDL_Event& event) {
         SDL_Point mousePoint = { event.motion.x, event.motion.y };
         mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
 
+        // Vertical movement:
+
+        if (m_isHolding) {
+            int mouseTrackPos = getTrackPos(mousePoint.y);
+            int deltaTrackPos = mouseTrackPos - m_lastLegalTrackPos;
+            if (deltaTrackPos != 0) {
+                // Check if there are enough tracks to move in the desired trackPos direction
+                bool impossibleMove = false;
+                if (deltaTrackPos > 0) {
+                    // Only audio
+                    if (m_selectedVideoSegments.empty()) {
+                        if (m_selectedMaxTrackPos + deltaTrackPos >= m_audioTrackIDtoPosMap.size()) {
+                            impossibleMove = true;
+                        }
+                    }
+                    // Only video
+                    else if (m_selectedAudioSegments.empty()) {
+                        if (m_selectedMaxTrackPos + deltaTrackPos >= m_videoTrackIDtoPosMap.size()) {
+                            impossibleMove = true;
+                        }
+                    }
+                    // Both
+                    else if (m_selectedMaxTrackPos + deltaTrackPos >= std::min(m_videoTrackIDtoPosMap.size(), m_audioTrackIDtoPosMap.size())) {
+                        impossibleMove = true;
+                    }
+                }
+                else if (deltaTrackPos < 0) {
+                    if (m_selectedMinTrackPos + deltaTrackPos < 0) impossibleMove = true;
+                }
+
+                // If it is possible to move all selected segments to different tracks, move them and check for collisions
+                if (!impossibleMove) {
+                    // Move all selected segments by deltaTrackPos (no collision checks yet)
+                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                        m_selectedVideoSegments[i]->trackID = m_videoTrackPosToIDMap[m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID] + deltaTrackPos];
+                    }
+                    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                        m_selectedAudioSegments[i]->trackID = m_audioTrackPosToIDMap[m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID] + deltaTrackPos];
+                    }
+
+                    // For every moved segment, check for collisions
+                    bool illegalMove = false;
+                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                        // If it collides, undo every move
+                        if (isCollidingWithOtherSegments(m_selectedVideoSegments[i])) {
+                            illegalMove = true;
+                            break; // Exit loop
+                        }
+                    }
+                    if (!illegalMove) {
+                        for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                            // If it collides, undo every move
+                            if (isCollidingWithOtherSegments(m_selectedAudioSegments[i])) {
+                                illegalMove = true;
+                                break; // Exit loop
+                            }
+                        }
+                    }
+                    if (illegalMove) {
+                        // Move all selected segments back
+                        for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                            m_selectedVideoSegments[i]->trackID = m_videoTrackPosToIDMap[m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID] - deltaTrackPos];
+                        }
+                        for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                            m_selectedAudioSegments[i]->trackID = m_audioTrackPosToIDMap[m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID] - deltaTrackPos];
+                        }
+                    }
+                    else {
+                        // Update the lastLegalTrackPos and the selected Max and Min TrackPos
+                        m_lastLegalTrackPos = mouseTrackPos;
+                        m_selectedMaxTrackPos += deltaTrackPos;
+                        m_selectedMinTrackPos += deltaTrackPos;
+                    }
+                }
+            }
+        }
+
+        // Horizontal movement:
+
+        // If we moved above a threshold amount of pixels from the starting X-location of the mouse since holding the left mouse button, start dragging
         if (m_isHolding && !m_isDragging) {
-            // If we moved above a threshold amount of pixels from the starting X-location of the mouse since holding the left mouse button, start dragging
             if (std::abs(mousePoint.x - m_mouseHoldStartX) > m_draggingThreshold) {
                 m_isDragging = true; 
             }
@@ -382,9 +480,7 @@ void Timeline::handleEvent(SDL_Event& event) {
         if (m_isDragging && (!m_selectedVideoSegments.empty() || !m_selectedAudioSegments.empty())) {
             Uint32 currentFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
             if (mousePoint.x < rect.x + m_trackStartXPos) currentFrame = 0;
-
-            // TODO: allow vertical movement / moving between tracks
-
+            
             Uint32 deltaFrames; // Amount of frames to move
             if (currentFrame < m_lastLegalFrame) { // Moving left
                 deltaFrames = m_lastLegalFrame - currentFrame; // Absolute difference
@@ -729,7 +825,7 @@ Segment* Timeline::findTypeImpl(const std::type_info& type) {
     return nullptr;
 }
 
-Track Timeline::GetTrackID(SDL_Point mousePoint) {
+Track Timeline::getTrackID(SDL_Point mousePoint) {
     Track track;
     track.trackID = -1;
     // Iterate over video and audio tracks to find the trackID
@@ -752,6 +848,17 @@ Track Timeline::GetTrackID(SDL_Point mousePoint) {
     return track;
 }
 
+int Timeline::getTrackPos(int y) {
+    if (y < rect.y + m_topBarheight) return -1;
+
+    int selectedTrackPos = static_cast<int>(m_videoTrackIDtoPosMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
+    if (selectedTrackPos < m_videoTrackIDtoPosMap.size()) return selectedTrackPos;
+
+    selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackIDtoPosMap.size());
+    if (selectedTrackPos < m_audioTrackIDtoPosMap.size()) return selectedTrackPos;
+    return -1;
+}
+
 bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     SDL_Point mousePoint = { mouseX, mouseY };
 
@@ -763,7 +870,7 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
 
     Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-    Track track = GetTrackID(mousePoint);
+    Track track = getTrackID(mousePoint);
     int videoTrackID = track.trackID;
     int audioTrackID = track.trackID;
 
@@ -773,12 +880,17 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     if (!data->videoData && track.trackType == VIDEO) return false; // Cannot drop audio only files in video tracks
     if (!data->audioData && track.trackType == AUDIO) return false; // Cannot drop video only files in audio tracks
     if (data->videoData && data->audioData) {
+        int trackPos = 0;
         if (track.trackType == VIDEO) {
-            audioTrackID = m_audioTrackPosToIDMap[m_videoTrackIDtoPosMap[videoTrackID]];
+            trackPos = m_videoTrackIDtoPosMap[videoTrackID];
+            audioTrackID = m_audioTrackPosToIDMap[trackPos];
         }
         else if (track.trackType == AUDIO) {
-            videoTrackID = m_videoTrackPosToIDMap[m_audioTrackIDtoPosMap[audioTrackID]];
+            trackPos = m_audioTrackIDtoPosMap[audioTrackID];
+            videoTrackID = m_videoTrackPosToIDMap[trackPos];
         }
+
+        if (trackPos >= std::min(m_videoTrackIDtoPosMap.size(), m_audioTrackIDtoPosMap.size())) return false; // Cannot drop AV files in if the target trackPos doesn't exist for both video and audio
     }
 
     VideoSegment videoSegment;
@@ -836,7 +948,12 @@ bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     // Start dragging logic
     m_isHolding = true;
     m_isDragging = true;
-    m_mouseHoldStartTrackID = 0; // TODO
+    int trackPos = 0;
+    if (data->videoData) trackPos = m_videoTrackIDtoPosMap[videoSegment.trackID];
+    else if (data->audioData) trackPos = m_audioTrackIDtoPosMap[videoSegment.trackID];
+    m_lastLegalTrackPos = trackPos;
+    m_selectedMaxTrackPos = trackPos;
+    m_selectedMinTrackPos = trackPos;
     m_lastLegalFrame = selectedFrame;
     m_lastLegalLeftmostFrame = selectedFrame;
 
