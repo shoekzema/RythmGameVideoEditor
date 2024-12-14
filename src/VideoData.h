@@ -85,22 +85,20 @@ struct VideoData {
     AVFrame* getFrame(Uint32 frameIndex) {
         AVPacket packet;
 
-        // If we do not want the first frame, seek the frame we want
-        if (frameIndex != 0) {
-            // Get the timestamp in the stream's time base
-            AVRational timeBase = formatContext->streams[streamIndex]->time_base;
+        // Get the timestamp in the stream's time base
+        AVRational timeBase = formatContext->streams[streamIndex]->time_base;
 
-            // Convert the desired frame number to a timestamp
-            int64_t targetTimestamp = av_rescale_q(frameIndex, getFPS(), timeBase);
+        // Convert the desired frame number to a timestamp
+        int64_t targetTimestamp = av_rescale_q(frameIndex, getFPS(), timeBase);
 
-            if (av_seek_frame(formatContext, streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
-                std::cerr << "Error seeking video to timestamp: " << targetTimestamp << std::endl;
-                return nullptr;
-            }
-
-            // Flush the codec context buffers to clear any data from previous frames.
-            avcodec_flush_buffers(codecContext);
+        // Seek the frame we want
+        if (av_seek_frame(formatContext, streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
+            std::cerr << "Error seeking video to timestamp: " << targetTimestamp << std::endl;
+            return nullptr;
         }
+
+        // Flush the codec context buffers to clear any data from previous frames.
+        avcodec_flush_buffers(codecContext);
 
         // Read packets from the media file. Each packet corresponds to a small chunk of data (e.g., a frame).
         while (av_read_frame(formatContext, &packet) >= 0) {
