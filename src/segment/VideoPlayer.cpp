@@ -41,16 +41,7 @@ void VideoPlayer::render() {
         SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
         SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
 
-        if (m_timeline->isPlaying()) {
-            playTimeline();
-        }
-        else {
-            SDL_PauseAudioDevice(m_audioDevice, 1);
-
-            // Pause or stop any other playback actions as needed
-            m_lastVideoSegment = nullptr;
-            m_lastAudioSegment = nullptr;
-        }
+        renderTimeline();
     }
     else {
         // Find the root segment
@@ -86,17 +77,23 @@ void VideoPlayer::setVideoRect(SDL_Rect* rect) {
     }
 }
 
-void VideoPlayer::playTimeline() {
+void VideoPlayer::renderTimeline() {
     static int s_lastFrameWidth = 0;
     static int s_lastFrameHeight = 0;
 
     // Get the current video segment from the timeline
     VideoSegment* currentVideoSegment = m_timeline->getCurrentVideoSegment();
     if (currentVideoSegment) {
-        // Get and decode the video frame at the corresponding time in the segment
-        if (!getVideoFrame(currentVideoSegment)) {
-            std::cerr << "Failed to retrieve video frame." << std::endl;
-            return;
+        Uint32 currentVideoSegmentFrame = m_timeline->getCurrentTime() - currentVideoSegment->timelinePosition;
+
+        // If we are playing the video, or the timeline currentTime (time to start playing from) has been changed
+        if (m_timeline->isPlaying() || currentVideoSegmentFrame != m_lastVideoSegmentFrame) {
+            // Get and decode the video frame at the corresponding time in the segment
+            if (!getVideoFrame(currentVideoSegment)) {
+                std::cerr << "Failed to retrieve video frame." << std::endl;
+                return;
+            }
+            m_lastVideoSegmentFrame = currentVideoSegmentFrame;
         }
 
         // Display the video frame using SDL
@@ -151,14 +148,23 @@ void VideoPlayer::playTimeline() {
         }
     }
 
-    // Get the current audio segment (if applicable)
-    AudioSegment* currentAudioSegment = m_timeline->getCurrentAudioSegment();
-    if (!currentAudioSegment) {
-        //std::cout << "No audio segment found at the current timeline position." << std::endl;
-        SDL_PauseAudioDevice(m_audioDevice, 1); // Pause audio if no audio segments found at the current timeline position.
+    if (m_timeline->isPlaying()) {
+        // Get the current audio segment (if applicable)
+        AudioSegment* currentAudioSegment = m_timeline->getCurrentAudioSegment();
+        if (!currentAudioSegment) {
+            //std::cout << "No audio segment found at the current timeline position." << std::endl;
+            SDL_PauseAudioDevice(m_audioDevice, 1); // Pause audio if no audio segments found at the current timeline position.
+        }
+        else {
+            playAudioSegment(currentAudioSegment);
+        }
     }
     else {
-        playAudioSegment(currentAudioSegment);
+        SDL_PauseAudioDevice(m_audioDevice, 1);
+
+        // Pause or stop any other playback actions as needed
+        m_lastVideoSegment = nullptr;
+        m_lastAudioSegment = nullptr;
     }
 }
 
@@ -168,13 +174,14 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
         return false;
     }
 
+    Uint32 currentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
+
     // Seek to the beginning of the segment if this is a new segment
-    if (m_lastVideoSegment != videoSegment) {
+    if (m_lastVideoSegment != videoSegment || (!m_timeline->isPlaying() && currentFrame != m_lastVideoSegmentFrame)) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base;
         
         Uint32 targetFrame = videoSegment->sourceStartTime;
-        Uint32 currentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
         // Convert the desired frame number to a timestamp
         int64_t targetTimestamp  = av_rescale_q(targetFrame,  videoSegment->fps,          timeBase);
         int64_t currentTimestamp = av_rescale_q(currentFrame, { 1, m_timeline->getFPS()}, timeBase);

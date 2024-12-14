@@ -22,7 +22,7 @@ private:
     void setVideoRect(SDL_Rect* rect);
 
     // Render video and audio based on the segments in the timeline at the current timeline time.
-    void playTimeline();
+    void renderTimeline();
 
     // Get the current video frame from a videoSegment. The resulting frame is stored inside videoSegment.
     bool getVideoFrame(VideoSegment* videoSegment);
@@ -44,5 +44,6 @@ private:
 
     VideoSegment* m_lastVideoSegment = nullptr;
     AudioSegment* m_lastAudioSegment = nullptr;
+    Uint32 m_lastVideoSegmentFrame = 0;
     Uint32 m_frameDropThreshold = 1; // 60 fps
 };
