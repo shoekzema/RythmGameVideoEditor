@@ -210,8 +210,9 @@ void Timeline::handleEvent(SDL_Event& event) {
 
     switch (event.type) {
     case SDL_KEYDOWN: {
-        // Check if the key pressed was the spacebar
-        if (event.key.keysym.sym == SDLK_SPACE) {
+        switch (event.key.keysym.sym) {
+        // Play / Pause
+        case SDLK_SPACE: {
             if (m_playing) {
                 m_playing = false;
                 m_currentTime = m_startPlayTime;
@@ -220,9 +221,10 @@ void Timeline::handleEvent(SDL_Event& event) {
                 m_playing = true;
                 m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000 / m_fps);
             }
+            break;
         }
-        // Check if the key pressed was delete
-        if (event.key.keysym.sym == SDLK_DELETE) {
+        // Deleting segments / tracks
+        case SDLK_DELETE: {
             if (!m_selectedVideoSegments.empty()) {
                 // Predicate to check if a VideoSegment exists in m_selectedVideoSegments
                 auto isSelected = [this](const VideoSegment& segment) {
@@ -247,6 +249,19 @@ void Timeline::handleEvent(SDL_Event& event) {
                     m_audioSegments.end()
                 );
             }
+            break;
+        }
+        // Move one frame up the timeline
+        case SDLK_RIGHT: {
+            setCurrentTime(getCurrentTime() + 1);
+            break;
+        }
+        // Move one frame down the timeline
+        case SDLK_LEFT: {
+            Uint32 currentTime = getCurrentTime();
+            if (currentTime != 0) setCurrentTime(currentTime - 1);
+            break;
+        }
         }
         break;
     }
