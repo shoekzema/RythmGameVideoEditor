@@ -24,8 +24,18 @@ private:
     // Render video and audio based on the segments in the timeline at the current timeline time.
     void renderTimeline();
 
+    void playAudio();
+    void pauseAudioPlayback();
+
+    void renderFrame(VideoSegment* videoSegment);
+
+    // Render the current video frame of a videoSegment to the screen
+    void renderFrameToScreen(VideoSegment* videoSegment);
+
     // Get the current video frame from a videoSegment. The resulting frame is stored inside videoSegment.
     bool getVideoFrame(VideoSegment* videoSegment);
+    bool decodeAndProcessFrame(VideoSegment* videoSegment, Uint32 currentFrame);
+    bool processFrame(VideoSegment* videoSegment, Uint32 currentFrame);
 
     // Play the current audio frame from an audioSegment.
     void playAudioSegment(AudioSegment* audioSegment);
@@ -45,5 +55,6 @@ private:
     VideoSegment* m_lastVideoSegment = nullptr;
     AudioSegment* m_lastAudioSegment = nullptr;
     Uint32 m_lastVideoSegmentFrame = 0;
-    Uint32 m_frameDropThreshold = 1; // 60 fps
+    double m_frameDropThreshold = 1; // Allow being one frame behind
+    int m_framebehindSeekThreshold = 10; // We need to be at least 10 frames behind to use av_seek_frame over just skipping frames one by one.
 };
