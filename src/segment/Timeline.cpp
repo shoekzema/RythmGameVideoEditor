@@ -372,6 +372,7 @@ void Timeline::handleEvent(SDL_Event& event) {
 
             // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
             m_playing = false;
+            m_isMovingCurrentTime = true;
             setCurrentTime(clickedFrame);
             m_selectedVideoSegments.clear();
             m_selectedAudioSegments.clear();
@@ -404,6 +405,12 @@ void Timeline::handleEvent(SDL_Event& event) {
     case SDL_MOUSEMOTION: {
         SDL_Point mousePoint = { event.motion.x, event.motion.y };
         mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+
+        // Changing current time
+        if (m_isMovingCurrentTime) {
+            Uint32 hoveredFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+            setCurrentTime(hoveredFrame);
+        }
 
         // Vertical movement:
 
@@ -557,6 +564,7 @@ void Timeline::handleEvent(SDL_Event& event) {
     case SDL_MOUSEBUTTONUP: {
         m_isHolding = false;
         m_isDragging = false;
+        m_isMovingCurrentTime = false;
         break;
     }
     case SDL_MOUSEWHEEL: {

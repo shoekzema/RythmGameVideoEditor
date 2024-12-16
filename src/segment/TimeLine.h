@@ -129,6 +129,7 @@ private:
     std::vector<AudioSegment*> m_selectedAudioSegments;
     bool m_isHolding = false;
     bool m_isDragging = false;
+    bool m_isMovingCurrentTime = false;
     int m_draggingThreshold = 20; // Pixel threshold for dragging segments
     int m_mouseHoldStartX = 0;
     int m_lastLegalTrackPos = 0; // The last track order position to which moving the selected segments was legal
