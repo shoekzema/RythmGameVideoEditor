@@ -81,15 +81,15 @@ void VideoPlayer::renderTimeline() {
     // Get the current video segment from the timeline
     VideoSegment* currentVideoSegment = m_timeline->getCurrentVideoSegment();
 
-    if (currentVideoSegment) {
-        renderFrame(currentVideoSegment);
-    }
-
     if (m_timeline->isPlaying()) {
         playAudio();
     }
     else {
-        pauseAudioPlayback();
+        pausePlayback();
+    }
+
+    if (currentVideoSegment) {
+        renderFrame(currentVideoSegment);
     }
 }
 
@@ -105,11 +105,12 @@ void VideoPlayer::playAudio() {
     playAudioSegment(currentAudioSegment);
 }
 
-void VideoPlayer::pauseAudioPlayback() {
+void VideoPlayer::pausePlayback() {
+    // Stop audio
     SDL_PauseAudioDevice(m_audioDevice, 1);
 
-    // Pause or stop any other playback actions as needed
-    m_lastVideoSegment = nullptr;
+    // Reset last segments
+    m_lastVideoSegment = m_startVideoSegment;
     m_lastAudioSegment = nullptr;
 }
 
@@ -123,6 +124,7 @@ void VideoPlayer::renderFrame(VideoSegment* videoSegment) {
             return;
         }
         m_lastVideoSegmentFrame = currentVideoSegmentFrame;
+        m_startVideoSegment = videoSegment;
     }
 
     renderFrameToScreen(videoSegment);
@@ -247,11 +249,8 @@ bool VideoPlayer::processFrame(VideoSegment* videoSegment, Uint32 currentFrame) 
     // Calculate the frame's presentation timestamp in frames (frame index)
     double framePTS = videoSegment->videoData->frame->pts * av_q2d(stream->time_base);
 
-    // Convert framePTS to frames
-    framePTS *= stream->r_frame_rate.num / stream->r_frame_rate.den;
-
-    // Adjust the frame's timing based on the target frame rate (newPTS = PTS * targetFPS / videoFPS)
-    double adjustedFramePTS = framePTS * m_timeline->getFPS() / av_q2d(videoSegment->fps);
+    // Adjust the frame's timing based on the target frame rate
+    double adjustedFramePTS = framePTS * m_timeline->getFPS();
 
     Uint32 currentPlaybackFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
 
