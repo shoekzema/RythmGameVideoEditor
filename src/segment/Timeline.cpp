@@ -225,30 +225,7 @@ void Timeline::handleEvent(SDL_Event& event) {
         }
         // Deleting segments / tracks
         case SDLK_DELETE: {
-            if (!m_selectedVideoSegments.empty()) {
-                // Predicate to check if a VideoSegment exists in m_selectedVideoSegments
-                auto isSelected = [this](const VideoSegment& segment) {
-                    return std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), &segment) != m_selectedVideoSegments.end();
-                    };
-
-                // Remove all selected segments from m_videoSegments
-                m_videoSegments.erase(
-                    std::remove_if(m_videoSegments.begin(), m_videoSegments.end(), isSelected),
-                    m_videoSegments.end()
-                );
-            }
-            if (!m_selectedAudioSegments.empty()) {
-                // Predicate to check if an AudioSegment exists in m_selectedAudioSegments
-                auto isSelected = [this](const AudioSegment& segment) {
-                    return std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), &segment) != m_selectedAudioSegments.end();
-                    };
-
-                // Remove all selected segments from m_videoSegments
-                m_audioSegments.erase(
-                    std::remove_if(m_audioSegments.begin(), m_audioSegments.end(), isSelected),
-                    m_audioSegments.end()
-                );
-            }
+            deleteSelectedSegments();
             break;
         }
         // Move one frame up the timeline
@@ -398,6 +375,30 @@ void Timeline::handleEvent(SDL_Event& event) {
                     };
                     PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
                 }
+                break;
+            }
+            // If clicked on a segment
+            VideoSegment* clickedVideoSegment = getVideoSegmentAtPos(mouseButton.x, mouseButton.y);
+            AudioSegment* clickedAudioSegment = getAudioSegmentAtPos(mouseButton.x, mouseButton.y);
+
+            if (clickedVideoSegment || clickedAudioSegment) {
+                // If not already selected, unselect everything else and select this one
+                if (clickedVideoSegment && std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
+                    m_selectedVideoSegments.clear();
+                    m_selectedAudioSegments.clear();
+                    m_selectedVideoSegments.push_back(clickedVideoSegment);
+                }
+                else if (clickedAudioSegment && std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
+                    m_selectedVideoSegments.clear();
+                    m_selectedAudioSegments.clear();
+                    m_selectedAudioSegments.push_back(clickedAudioSegment);
+                }
+
+                // Show selected segments options
+                std::vector<PopupMenu::MenuItem> contextMenuOptions = {
+                    { "Delete Selected Item(s)", [this]() { deleteSelectedSegments(); } }
+                };
+                PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
             }
         }
         break;
@@ -784,6 +785,35 @@ void Timeline::deleteTrack(Track track) {
             }
         }
         m_audioTrackPosToIDMap = std::move(updatedTrackPosToIDmap);
+    }
+}
+
+void Timeline::deleteSelectedSegments() {
+    if (!m_selectedVideoSegments.empty()) {
+        // Predicate to check if a VideoSegment exists in m_selectedVideoSegments
+        auto isSelected = [this](const VideoSegment& segment) {
+            return std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), &segment) != m_selectedVideoSegments.end();
+            };
+
+        // Remove all selected segments from m_videoSegments
+        m_videoSegments.erase(
+            std::remove_if(m_videoSegments.begin(), m_videoSegments.end(), isSelected),
+            m_videoSegments.end()
+        );
+        m_selectedVideoSegments.clear();
+    }
+    if (!m_selectedAudioSegments.empty()) {
+        // Predicate to check if an AudioSegment exists in m_selectedAudioSegments
+        auto isSelected = [this](const AudioSegment& segment) {
+            return std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), &segment) != m_selectedAudioSegments.end();
+            };
+
+        // Remove all selected segments from m_videoSegments
+        m_audioSegments.erase(
+            std::remove_if(m_audioSegments.begin(), m_audioSegments.end(), isSelected),
+            m_audioSegments.end()
+        );
+        m_selectedAudioSegments.clear();
     }
 }
 

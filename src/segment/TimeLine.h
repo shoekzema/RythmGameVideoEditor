@@ -109,6 +109,7 @@ private:
     void addTrack(Track track, int videoOrAudio, bool above = true);
 
     void deleteTrack(Track track);
+    void deleteSelectedSegments();
 private:
     bool m_playing = false;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
