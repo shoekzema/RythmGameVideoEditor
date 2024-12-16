@@ -308,7 +308,7 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
     Uint32 endFrameIndex = startFrameIndex + audioSegment->duration;
 
     // Seek to the beginning of the segment if this is a new segment
-    if (m_lastAudioSegment != audioSegment) {
+    if (m_lastAudioSegment != audioSegment || audioSegment->timelinePosition != m_lastAudioSegmentPos) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = audioSegment->audioData->formatContext->streams[audioSegment->audioData->streamIndex]->time_base;
 
@@ -331,10 +331,10 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
 
         // Clear the audio queue
         SDL_ClearQueuedAudio(m_audioDevice);
-    }
 
-    // Update last segment pointer
-    m_lastAudioSegment = audioSegment;
+        m_lastAudioSegment = audioSegment;
+        m_lastAudioSegmentPos = audioSegment->timelinePosition;
+    }
 
     // Decode audio frames and play them until reaching the end of the segment duration
     AVPacket packet;
