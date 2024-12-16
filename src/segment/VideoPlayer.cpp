@@ -193,21 +193,15 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
     // Check if we need to seek
     bool isNewSegment = m_lastVideoSegment != videoSegment;
     bool isPausedAndFrameChanged = !m_timeline->isPlaying() && currentFrame != m_lastVideoSegmentFrame;
-    bool isPlayingAndFrameBehind =  m_timeline->isPlaying() && currentFrame < m_lastVideoSegmentFrame;
-    bool isPlayingAndFrameAhead  =  m_timeline->isPlaying() && currentFrame > m_lastVideoSegmentFrame + m_framebehindSeekThreshold;
+    bool isPlayingAndFrameAhead  =  m_timeline->isPlaying() && currentFrame < m_lastVideoSegmentFrame;
+    bool isPlayingAndFrameBehind =  m_timeline->isPlaying() && currentFrame > m_lastVideoSegmentFrame + m_framebehindSeekThreshold;
 
     if (isNewSegment || isPausedAndFrameChanged || isPlayingAndFrameBehind || isPlayingAndFrameAhead) {
         // Get the timestamp in the stream's time base
         AVRational timeBase = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex]->time_base;
         
-        Uint32 targetFrame = videoSegment->sourceStartTime;
         // Convert the desired frame number to a timestamp
-        int64_t targetTimestamp  = av_rescale_q(targetFrame,  videoSegment->fps,          timeBase);
-        int64_t currentTimestamp = av_rescale_q(currentFrame, { 1, m_timeline->getFPS()}, timeBase);
-
-        if (currentTimestamp > targetTimestamp) {
-            targetTimestamp = currentTimestamp;
-        }
+        int64_t targetTimestamp = av_rescale_q(currentFrame, { 1, m_timeline->getFPS()}, timeBase);
 
         if (av_seek_frame(videoSegment->videoData->formatContext, videoSegment->videoData->streamIndex, targetTimestamp, AVSEEK_FLAG_BACKWARD) < 0) {
             std::cerr << "Error seeking video to timestamp: " << targetTimestamp << std::endl;
@@ -269,7 +263,7 @@ bool VideoPlayer::processFrame(VideoSegment* videoSegment, Uint32 currentFrame) 
     // Check if the frame is too early
     if (adjustedFramePTS > currentPlaybackFrame) {
         double frameTimeDifference = adjustedFramePTS - currentPlaybackFrame;
-        double targetDelayTime = frameTimeDifference / m_timeline->getFPS(); // Time delay in seconds
+        double targetDelayTime = frameTimeDifference / av_q2d(videoSegment->fps); // Time delay in seconds
         SDL_Delay(static_cast<Uint32>(targetDelayTime * 1000));  // Delay in milliseconds
     }
 
