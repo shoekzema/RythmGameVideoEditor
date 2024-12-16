@@ -55,7 +55,7 @@ private:
     VideoSegment* m_lastVideoSegment = nullptr;
     AudioSegment* m_lastAudioSegment = nullptr;
     VideoSegment* m_startVideoSegment = nullptr;
-    Uint32 m_lastVideoSegmentFrame = 0;
+    Uint32 m_lastVideoSegmentFrame = UINT32_MAX;
     Uint32 m_lastAudioSegmentPos = 0;
     double m_frameDropThreshold = 1; // Allow being one frame behind
     int m_framebehindSeekThreshold = 30; // We need to be at least 10 frames behind to use av_seek_frame over just skipping frames one by one.
