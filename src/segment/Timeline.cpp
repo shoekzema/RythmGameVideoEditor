@@ -409,7 +409,7 @@ void Timeline::handleEvent(SDL_Event& event) {
 
         // Changing current time
         if (m_isMovingCurrentTime) {
-            Uint32 hoveredFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
+            Uint32 hoveredFrame = (mousePoint.x <= m_trackStartXPos) ? 0 : (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
             setCurrentTime(hoveredFrame);
         }
 
