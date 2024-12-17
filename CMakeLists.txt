@@ -33,7 +33,7 @@ add_executable (RythmGameVideoEditor  "src/main.cpp"
     "src/segment/VideoPlayer.h" "src/segment/VideoPlayer.cpp" 
     "src/segment/TimeLine.h" "src/segment/Timeline.cpp" 
     "src/util.h" "src/util.cpp" 
-    "src/VideoData.h" "src/segment/SegmentIncludes.h")
+    "src/VideoData.h" "src/segment/SegmentIncludes.h" "src/ContextMenu.h")
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)
@@ -70,7 +70,7 @@ target_link_libraries(RythmGameVideoEditor
 # Set bin dirs
 set(FFMPEG_BIN_DIR "${FFMPEG_ROOT}/bin")
 
-# Add post-build commands to copy FFmpeg DLLs to the output directory
+# Copy library DLLs to the output directory
 add_custom_command(TARGET RythmGameVideoEditor POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${SDL2_LIBRARIES}/SDL2.dll"
@@ -83,4 +83,17 @@ add_custom_command(TARGET RythmGameVideoEditor POST_BUILD
     "${FFMPEG_BIN_DIR}/avfilter-9.dll"
     "${FFMPEG_BIN_DIR}/avdevice-60.dll"
     $<TARGET_FILE_DIR:RythmGameVideoEditor>
+    COMMENT "Copying updated or new libraries to build directory"
+)
+
+# Set asset dirs
+set(ASSETS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/assets")
+set(ASSETS_DEST_DIR "$<TARGET_FILE_DIR:RythmGameVideoEditor>/assets")
+
+# Copy assets to the output directory
+add_custom_command(
+    TARGET RythmGameVideoEditor POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${ASSETS_DEST_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${ASSETS_SOURCE_DIR}" "${ASSETS_DEST_DIR}"
+    COMMENT "Copying updated or new assets to build directory"
 )

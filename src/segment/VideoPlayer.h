@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL.h>
+#include <iostream>
 #include "Segment.h"
 #include "Timeline.h"
 #include "EventManager.h"
@@ -19,13 +20,32 @@ public:
     void handleEvent(SDL_Event& event) override;
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
+    // Set the video display Rect. Keeps the video resolution, regardless of segment proportions.
     void setVideoRect(SDL_Rect* rect);
 
     // Render video and audio based on the segments in the timeline at the current timeline time.
-    void playTimeline(Timeline* timeline);
+    void renderTimeline();
+
+    // Play the current audio from the timeline
+    void playAudio();
+
+    // Pause all audio playback
+    void pausePlayback();
+
+    // Gets and renders the current video frame from a video segment
+    void renderFrame(VideoSegment* videoSegment);
+
+    // Render the current video frame of a videoSegment to the screen
+    void renderFrameToScreen(VideoSegment* videoSegment);
 
     // Get the current video frame from a videoSegment. The resulting frame is stored inside videoSegment.
     bool getVideoFrame(VideoSegment* videoSegment);
+
+    // Decode and process video frames until we get the current frame, returns true if successfull
+    bool decodeAndProcessFrame(VideoSegment* videoSegment, Uint32 currentFrame);
+
+    // Process the current frame, returns true if successfull, false if this is not the right frame
+    bool processFrame(VideoSegment* videoSegment, Uint32 currentFrame);
 
     // Play the current audio frame from an audioSegment.
     void playAudioSegment(AudioSegment* audioSegment);
@@ -44,5 +64,9 @@ private:
 
     VideoSegment* m_lastVideoSegment = nullptr;
     AudioSegment* m_lastAudioSegment = nullptr;
-    double m_frameDropThreshold = 1.0 / 60.0; // 60 fps
+    VideoSegment* m_startVideoSegment = nullptr;
+    Uint32 m_lastVideoSegmentFrame = UINT32_MAX;
+    Uint32 m_lastAudioSegmentPos = 0;
+    double m_frameDropThreshold = 1; // Allow being one frame behind
+    int m_framebehindSeekThreshold = 30; // We need to be at least 10 frames behind to use av_seek_frame over just skipping frames one by one.
 };

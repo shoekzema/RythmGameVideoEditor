@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <iostream>
+#include <functional>
 #include "Segment.h"
 #include "EventManager.h"
 #include "VideoData.h"
@@ -40,19 +41,11 @@ private:
     bool loadFile(const char* filepath);
 
     /**
-     * @brief Get a specific frame from a video.
-     * @param videoData The videoData needed to get the frame.
-     * @param frameIndex The index of the video frame to return.
-     * @return The chosen video frame.
-     */
-    AVFrame* getFrame(VideoData* videoData, int frameIndex);
-
-    /**
      * @brief Return a texture for a video thumbail.
      * @param videoData The videoData needed to get the frame to create a texture for.
      * @return The texture with the video's thumbnail.
      */
-    SDL_Texture* getFrameTexture(VideoData* videoData);
+    SDL_Texture* getThumbnail(VideoData* videoData);
 
 #ifdef _WIN32
     /**

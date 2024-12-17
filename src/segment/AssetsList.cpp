@@ -1,5 +1,7 @@
 #include <iostream>
 #include <filesystem>
+#include <SDL.h>
+#include <SDL_ttf.h>
 #include "AssetsList.h"
 #include "util.h"
 
@@ -20,48 +22,42 @@ void AssetsList::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
-    SDL_Rect thumbnailRect = { m_assetXPos, m_assetStartYPos - m_scrollOffset, m_assetImageWidth, m_assetImageHeight };
+    int yPos = m_assetStartYPos - m_scrollOffset;
     for (int i = 0; i < m_assets.size(); i++) {
         // Use alternative background color rect for every second asset
         if (i % 2 == 1) {
-            SDL_Rect altBG = { 0, thumbnailRect.y - 1, rect.w, thumbnailRect.h + 1 };
+            SDL_Rect altBG = { rect.x, yPos - 1, rect.w, m_assetImageHeight + 2 };
             SDL_SetRenderDrawColor(p_renderer, m_altColor.r, m_altColor.g, m_altColor.b, m_altColor.a);
             SDL_RenderFillRect(p_renderer, &altBG); // Draw background
         }
 
+        // Get the width and height of the original video texture
+        int videoFrameWidth, videoFrameHeight;
+        SDL_QueryTexture(m_assets[i].assetFrameTexture, nullptr, nullptr, &videoFrameWidth, &videoFrameHeight);
+
+        SDL_Rect thumbnailRect = { m_assetXPos, yPos, m_assetImageWidth, m_assetImageHeight };
+        // If the video frame is too thin, make a black BG and put it in the middle
+        if (videoFrameWidth * m_assetImageHeight < videoFrameHeight * m_assetImageWidth) {
+            SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
+            SDL_RenderFillRect(p_renderer, &thumbnailRect);
+
+            thumbnailRect.w = (videoFrameWidth * m_assetImageHeight) / videoFrameHeight;
+            thumbnailRect.x += (m_assetImageWidth - thumbnailRect.w) / 2; // Center horizontally
+        }
         SDL_RenderCopy(p_renderer, m_assets[i].assetFrameTexture, nullptr, &thumbnailRect);
 
-        SDL_Color textColor = { 255, 255, 255, 255 };
-        SDL_Surface* textSurface = TTF_RenderText_Solid(getFont(), m_assets[i].assetName.c_str(), textColor);
-        if (!textSurface) {
-            printf("Unable to render text surface! SDL_ttf Error: %s\n", TTF_GetError());
-        }
-        else {
-            // Convert surface to texture
-            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(p_renderer, textSurface);
-            SDL_FreeSurface(textSurface); // Free the surface now that we have a texture
+        renderText(p_renderer,
+            m_assetXPos + m_assetImageWidth + 6, // X position
+            yPos + 4,                            // Y position
+            getFont(),
+            m_assets[i].assetName.c_str());
 
-            if (!textTexture) {
-                printf("Unable to create texture from rendered text! SDL Error: %s\n", SDL_GetError());
-            }        
-            
-            // Define the destination rectangle for the text
-            SDL_Rect textRect;
-            textRect.x = thumbnailRect.x + thumbnailRect.w + 6; // X position
-            textRect.y = thumbnailRect.y + 4; // Y position
-            SDL_QueryTexture(textTexture, nullptr, nullptr, &textRect.w, &textRect.h); // Get width and height from the texture
-
-            SDL_RenderCopy(p_renderer, textTexture, nullptr, &textRect); // Render text
-
-            SDL_DestroyTexture(textTexture);
-        }
-
-        thumbnailRect.y += 2 + thumbnailRect.h;
+        yPos += 2 + m_assetImageHeight;
     }
 
     // If scrolling is possible, draw the scrollbar
     int assetListLength;
-    assetListLength = m_assets.size() * m_assetHeight;
+    assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight;
     if (assetListLength + m_assetStartYPos > rect.h) {
         // Draw the scrollbar border
         SDL_Rect scrollbarBorder = { rect.w - m_scrollBarXPos - m_scrollBarWidth, m_assetStartYPos, m_scrollBarWidth, rect.h - 2 * m_assetStartYPos };
@@ -87,18 +83,26 @@ void AssetsList::update(int x, int y, int w, int h) {
 
     // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the segment size, it will scroll up if possible)
     int assetListLength;
-    assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+    assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
     if (assetListLength > rect.h) {
         if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
     }
 }
 
 void AssetsList::handleEvent(SDL_Event& event) {
+    static bool mouseInThisSegment = false;
+
     switch (event.type) {
-    case SDL_MOUSEWHEEL:
+    case SDL_MOUSEMOTION: {
+        SDL_Point mousePoint = { event.motion.x, event.motion.y };
+        mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+        break;
+    }
+    case SDL_MOUSEWHEEL: {
+        if (!mouseInThisSegment) break;
+
         // Check if scrolling neccesary
-        int assetListLength;
-        assetListLength = m_assets.size() * m_assetHeight + m_assetStartYPos;
+        int assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
         if (assetListLength <= rect.h) break;
 
         // Scroll
@@ -108,8 +112,10 @@ void AssetsList::handleEvent(SDL_Event& event) {
         if (m_scrollOffset < 0) m_scrollOffset = 0;
         if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
         break;
-
+    }
     case SDL_DROPFILE: {
+        if (!mouseInThisSegment) break;
+
         const char* droppedFile = event.drop.file;
         loadFile(droppedFile);
         SDL_free(event.drop.file);
@@ -339,7 +345,7 @@ bool AssetsList::loadFile(const char* filepath) {
     }
 
     // Set a video/audio thumbnail texture
-    newAsset.assetFrameTexture = getFrameTexture(newAsset.videoData);
+    newAsset.assetFrameTexture = getThumbnail(newAsset.videoData);
 
     // Now that we used the video stream, throw it all away, cause we won't ever use it again
     if (fakeVideoStream) {
@@ -354,42 +360,7 @@ bool AssetsList::loadFile(const char* filepath) {
     return true; // Successfully loaded the video/audio file
 }
 
-AVFrame* AssetsList::getFrame(VideoData* videoData, int frameIndex) {
-    AVPacket packet;
-    int frameFinished = 0;
-    int currentFrame = 0;
-
-    // Read packets from the media file. Each packet corresponds to a small chunk of data (e.g., a frame).
-    while (av_read_frame(videoData->formatContext, &packet) >= 0) {
-        if (packet.stream_index == videoData->streamIndex) {
-            // Send the packet to the codec for decoding
-            avcodec_send_packet(videoData->codecContext, &packet);
-
-            // Receive the decoded frame from the codec
-            int ret = avcodec_receive_frame(videoData->codecContext, videoData->frame);
-            if (ret >= 0) {
-                if (currentFrame == frameIndex) {
-                    // Convert the frame to RGB
-                    int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-                    uint8_t* buffer = (uint8_t*)av_malloc(numBytes * sizeof(uint8_t));
-
-                    // Perform the conversion to RGB.
-                    av_image_fill_arrays(videoData->rgbFrame->data, videoData->rgbFrame->linesize, buffer, AV_PIX_FMT_RGB24, videoData->codecContext->width, videoData->codecContext->height, 1);
-                    sws_scale(videoData->swsContext, videoData->frame->data, videoData->frame->linesize, 0, videoData->codecContext->height, videoData->rgbFrame->data, videoData->rgbFrame->linesize);
-
-                    av_packet_unref(&packet);
-                    return videoData->rgbFrame; // Return the RGB frame
-                }
-                currentFrame++;
-            }
-        }
-        av_packet_unref(&packet);
-    }
-
-    return nullptr;  // Frame not found
-}
-
-SDL_Texture* AssetsList::getFrameTexture(VideoData* videoData) {
+SDL_Texture* AssetsList::getThumbnail(VideoData* videoData) {
 #ifdef _WIN32
     // If on a windows machine and m_useWindowsThumbnail is true, get the same thumbnail as windows shows
     if (m_useWindowsThumbnail) {
@@ -397,33 +368,9 @@ SDL_Texture* AssetsList::getFrameTexture(VideoData* videoData) {
         return getWindowsThumbnail(wideFilePath.c_str());
     }
 #endif // _WIN32
-    // Get the first video frame and use it as a thumbnail
-    AVFrame* frame = getFrame(videoData, 0); // Get the first frame
-    if (!frame) {
-        return nullptr;
-    }
-
-    // Create an SDL_Texture from the frame's RGB data
-    SDL_Texture* texture = SDL_CreateTexture(p_renderer,
-        SDL_PIXELFORMAT_RGB24,
-        SDL_TEXTUREACCESS_STREAMING,
-        videoData->codecContext->width,
-        videoData->codecContext->height);
-
-    // Lock the texture for pixel access
-    void* pixels;
-    int pitch;
-    SDL_LockTexture(texture, nullptr, &pixels, &pitch);
-
-    // Copy the frame's RGB data into the texture
-    for (int y = 0; y < videoData->codecContext->height; y++) {
-        memcpy((uint8_t*)pixels + y * pitch, videoData->rgbFrame->data[0] + y * videoData->rgbFrame->linesize[0], videoData->codecContext->width * 3);
-    }
-
-    SDL_UnlockTexture(texture);
-    return texture;
+    // Otherwise, get the first video frame as the thumbnail
+    return videoData->getFrameTexture(p_renderer, 0);
 }
-
 
 #ifdef _WIN32
 

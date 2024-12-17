@@ -2,6 +2,7 @@
 #include "Application.h"
 #include "util.h"
 #include "segment/SegmentIncludes.h"
+#include "ContextMenu.h"
 
 Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {
     if (init()) {
@@ -39,12 +40,19 @@ bool Application::init() {
     TTF_Init();
 
     // Load a font
-    m_font = TTF_OpenFont(getFullPath("assets/fonts/SegoeUIVF.ttf").c_str(), 13);
+    m_font = TTF_OpenFont("assets/fonts/SegoeUIVF.ttf", 13);
     if (!m_font) {
         printf("Failed to load font: %s\n", TTF_GetError());
-        return -1;
+        return false;
     }
     setFont(m_font);
+
+    m_font = TTF_OpenFont("assets/fonts/SegoeUIVF.ttf", 16);
+    setFontBig(m_font);
+
+    m_font = TTF_OpenFont("assets/fonts/SegoeUIVF.ttf", 10);
+    setFontSmall(m_font);
+
     return true;
 }
 
@@ -61,16 +69,19 @@ void Application::handleEvents() {
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) {
+        // Pass event to the root segment (which will pass it to all its child segments)
         if (m_rootSegment) {
             m_rootSegment->handleEvent(event);
         }
+        // Pass event to the context menu
+        ContextMenu::handleEvent(event);
 
         switch (event.type) {
-        case SDL_QUIT:
+        case SDL_QUIT: {
             m_running = false;
             break;
-
-        case SDL_WINDOWEVENT:
+        }
+        case SDL_WINDOWEVENT: {
             if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                 int newWidth = event.window.data1;
                 int newHeight = event.window.data2;
@@ -82,8 +93,8 @@ void Application::handleEvents() {
                 m_rootSegment->update(0, 0, newWidth, newHeight);
             }
             break;
-
-        case SDL_MOUSEBUTTONDOWN:
+        }
+        case SDL_MOUSEBUTTONDOWN: {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
@@ -95,8 +106,8 @@ void Application::handleEvents() {
                 }
             }
             break;
-
-        case SDL_MOUSEBUTTONUP:
+        }
+        case SDL_MOUSEMOTION: {
             if (m_isDragging && m_draggedAsset) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
@@ -104,15 +115,22 @@ void Application::handleEvents() {
                 Timeline* timeline = m_rootSegment->findType<Timeline>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
-                    if (m_draggedAsset->videoData) timeline->addVideoSegment(m_draggedAsset->videoData);
-                    if (m_draggedAsset->audioData) timeline->addAudioSegment(m_draggedAsset->audioData);
+                    if (timeline->addAssetSegments(m_draggedAsset, mouseButton.x, mouseButton.y)) {
+                        // Reset the dragging state
+                        m_isDragging = false;
+                        m_draggedAsset = nullptr;
+                        break;
+                    }
                 }
-
-                // Reset the dragging state
-                m_isDragging = false;
-                m_draggedAsset = nullptr;
             }
             break;
+        }
+        case SDL_MOUSEBUTTONUP: {
+            // Reset the dragging state
+            m_isDragging = false;
+            m_draggedAsset = nullptr;
+            break;
+        }
         }
     }
 }
@@ -125,6 +143,8 @@ void Application::render() {
     if (m_rootSegment) {
         m_rootSegment->render();
     }
+
+    ContextMenu::render(m_renderer);
 
     SDL_RenderPresent(m_renderer);
 }

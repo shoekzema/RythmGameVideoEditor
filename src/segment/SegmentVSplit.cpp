@@ -1,3 +1,5 @@
+#include <SDL.h>
+#include <iostream>
 #include "SegmentVSplit.h"
 #include "util.h"
 
@@ -35,31 +37,33 @@ void SegmentVSplit::render() {
 
 void SegmentVSplit::update(int x, int y, int w, int h) {
     int widthDiff = rect.w - w;
-    int widthChange = widthDiff / (rect.w / (float)m_leftSegment->rect.w);
-    m_leftSegment ->update(x,                   y, m_leftSegment->rect.w - widthChange, h);
+    int widthChange = widthDiff * m_leftSegment->rect.w / rect.w;
+    m_leftSegment ->update(x,                     y, m_leftSegment->rect.w - widthChange, h);
     m_rightSegment->update(m_leftSegment->rect.w, y, w - m_leftSegment->rect.w,           h);
     m_divider = { m_divider.x - widthChange, y, m_dividerThickness, h };
     Segment::update(x, y, w, h);
 }
 
 void SegmentVSplit::handleEvent(SDL_Event& event) {
-    if (event.type == SDL_MOUSEBUTTONDOWN) {
+    switch (event.type) {
+    case SDL_MOUSEBUTTONDOWN: {
         SDL_Point mousePoint = { event.button.x, event.button.y };
         if (SDL_PointInRect(&mousePoint, &m_divider)) {
             m_draggingDivider = true;
         }
+        break;
     }
-    else if (event.type == SDL_MOUSEMOTION) {
+    case SDL_MOUSEMOTION: {
         SDL_Point mouseMotion = { event.motion.x, event.motion.y };
 
         // If not in this Segment, we ignore it 
         if (SDL_PointInRect(&mouseMotion, &rect)) {
             if (m_draggingDivider) {
                 // Resize the segments dynamically by dragging the divider
-                int newMiddle = std::max(m_dividerThickness/2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness/2)) - rect.x - m_divider.w / 2;
+                int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness / 2)) - rect.x - m_divider.w / 2;
                 m_divider.x = newMiddle;
                 m_leftSegment->update(m_leftSegment->rect.x, m_leftSegment->rect.y, newMiddle, m_leftSegment->rect.h);
-                m_rightSegment->update(newMiddle, m_rightSegment->rect.y, rect.w - newMiddle, m_rightSegment->rect.h);
+                m_rightSegment->update(newMiddle + m_dividerThickness, m_rightSegment->rect.y, rect.w - newMiddle - m_dividerThickness, m_rightSegment->rect.h);
             }
             else if (SDL_PointInRect(&mouseMotion, &m_divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE));
@@ -68,10 +72,13 @@ void SegmentVSplit::handleEvent(SDL_Event& event) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW));
             }
         }
+        break;
     }
-    else if (event.type == SDL_MOUSEBUTTONUP) {
+    case SDL_MOUSEBUTTONUP: {
         SDL_Point mousePoint = { event.button.x, event.button.y };
         m_draggingDivider = false;
+        break;
+    }
     }
 
     m_leftSegment->handleEvent(event);
