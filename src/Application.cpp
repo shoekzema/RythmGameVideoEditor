@@ -2,7 +2,7 @@
 #include "Application.h"
 #include "util.h"
 #include "segment/SegmentIncludes.h"
-#include "PopupMenu.h"
+#include "ContextMenu.h"
 
 Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {
     if (init()) {
@@ -73,8 +73,8 @@ void Application::handleEvents() {
         if (m_rootSegment) {
             m_rootSegment->handleEvent(event);
         }
-        // Pass event to popup menu
-        PopupMenu::handleEvent(event);
+        // Pass event to the context menu
+        ContextMenu::handleEvent(event);
 
         switch (event.type) {
         case SDL_QUIT: {
@@ -144,7 +144,7 @@ void Application::render() {
         m_rootSegment->render();
     }
 
-    PopupMenu::render(m_renderer);
+    ContextMenu::render(m_renderer);
 
     SDL_RenderPresent(m_renderer);
 }

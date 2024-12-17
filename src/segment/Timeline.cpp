@@ -6,7 +6,7 @@
 #include <SDL_ttf.h>
 #include "Timeline.h"
 #include "util.h"
-#include "PopupMenu.h"
+#include "ContextMenu.h"
 
 Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
     : Segment(x, y, w, h, renderer, eventManager, parent, color) 
@@ -366,7 +366,7 @@ void Timeline::handleEvent(SDL_Event& event) {
                 if (track.trackID >= 0) {
                     if (track.trackID < 0) break;
                     if (track.trackID < 0) break;
-                    std::vector<PopupMenu::MenuItem> contextMenuOptions = {
+                    std::vector<ContextMenu::MenuItem> contextMenuOptions = {
                         { "Add Track", nullptr, {
                             { "Add AV Track Above",    [this, track]() { addTrack(track, 2, true);  } },
                             { "Add AV Track Below",    [this, track]() { addTrack(track, 2, false); } },
@@ -377,7 +377,7 @@ void Timeline::handleEvent(SDL_Event& event) {
                         }},
                         { "Delete Track", [this, track]() { deleteTrack(track); } }
                     };
-                    PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
+                    ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
                 }
                 break;
             }
@@ -399,10 +399,10 @@ void Timeline::handleEvent(SDL_Event& event) {
                 }
 
                 // Show selected segments options
-                std::vector<PopupMenu::MenuItem> contextMenuOptions = {
+                std::vector<ContextMenu::MenuItem> contextMenuOptions = {
                     { "Delete Selected Item(s)", [this]() { deleteSelectedSegments(); } }
                 };
-                PopupMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
+                ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
             }
         }
         break;

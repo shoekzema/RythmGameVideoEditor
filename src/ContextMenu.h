@@ -5,7 +5,7 @@
 #include <functional>
 #include "util.h"
 
-class PopupMenu {
+class ContextMenu {
 public:
     struct MenuItem {
         std::string label;
@@ -14,8 +14,8 @@ public:
     };
 public:
     // Static method to get the singleton instance
-    static PopupMenu& getInstance(SDL_Renderer* renderer = nullptr) {
-        static PopupMenu instance(renderer);
+    static ContextMenu& getInstance(SDL_Renderer* renderer = nullptr) {
+        static ContextMenu instance(renderer);
         if (renderer) {
             instance.m_renderer = renderer; // Set renderer if provided (once)
         }
@@ -68,7 +68,7 @@ public:
         }
     }
 private:
-    PopupMenu(SDL_Renderer* renderer) : m_renderer(renderer) {}
+    ContextMenu(SDL_Renderer* renderer) : m_renderer(renderer) {}
 
     void renderMenu(SDL_Renderer* renderer, int x, int y, const std::vector<MenuItem>& items, int hoveredIndex) {
         SDL_Rect outlineRect = {
