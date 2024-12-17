@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <SDL.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>

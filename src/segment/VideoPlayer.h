@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL.h>
+#include <iostream>
 #include "Segment.h"
 #include "Timeline.h"
 #include "EventManager.h"

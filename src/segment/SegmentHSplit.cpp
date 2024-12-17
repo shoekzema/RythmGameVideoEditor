@@ -1,3 +1,4 @@
+#include <SDL.h>
 #include <iostream>
 #include "SegmentHSplit.h"
 #include "util.h"

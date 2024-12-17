@@ -1,3 +1,4 @@
+#include <SDL.h>
 #include "Segment.h"
 
 Segment::Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)

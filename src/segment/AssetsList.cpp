@@ -1,5 +1,6 @@
 #include <iostream>
 #include <filesystem>
+#include <SDL.h>
 #include <SDL_ttf.h>
 #include "AssetsList.h"
 #include "util.h"

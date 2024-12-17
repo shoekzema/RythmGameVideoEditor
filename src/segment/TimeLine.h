@@ -1,9 +1,11 @@
 #pragma once
 #include <SDL.h>
+#include <iostream>
 #include <vector>
 #include <unordered_map>
 #include "Segment.h"
 #include "EventManager.h"
+#include "VideoData.h"
 
 // Segment in the timeline with a pointer to the corresponding video data and data on what of that video is to be played.
 struct VideoSegment {
@@ -144,7 +146,7 @@ private:
     int m_scrollSpeed = 10;
     int m_timeLabelInterval = 70;
     int m_topBarheight = 30;
-    int m_indicatorFrameDisplayThreshold = 8;
+    Uint8 m_indicatorFrameDisplayThreshold = 8;
     int m_trackDataWidth = 100;
     int m_trackStartXPos = m_trackDataWidth + 2;
     int m_trackHeight = 64;

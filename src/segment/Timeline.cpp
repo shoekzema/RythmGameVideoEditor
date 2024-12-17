@@ -53,7 +53,6 @@ void Timeline::render() {
     }
 
     // Draw all video tracks
-    SDL_SetRenderDrawColor(p_renderer, 0, 0, 255, 255);
     for (int i = 0; i < m_videoTrackIDtoPosMap.size(); i++) {
         int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - i) * m_rowHeight;
 

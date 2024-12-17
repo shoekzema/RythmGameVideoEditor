@@ -1,6 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <iostream>
+#include <functional>
 #include "Segment.h"
 #include "EventManager.h"
 #include "VideoData.h"
