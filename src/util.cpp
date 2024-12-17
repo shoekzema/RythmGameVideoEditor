@@ -3,11 +3,26 @@
 #include "util.h"
 
 std::wstring to_wstring(const char* str) {
-    std::mbstate_t state = std::mbstate_t();
-    std::size_t len = 1 + std::mbsrtowcs(nullptr, &str, 0, &state); // Get length required
-    std::wstring wstr(len, L'\0');  // Reserve space for wide string
+    if (!str) throw std::invalid_argument("Input string is null");
 
-    std::mbsrtowcs(&wstr[0], &str, len, &state); // Convert to wide string
+    std::mbstate_t state = std::mbstate_t();
+    const char* src = str;
+    std::size_t len = 0;
+
+    // Get the required length (including the null terminator)
+    errno_t err = mbsrtowcs_s(&len, nullptr, 0, &src, 0, &state);
+    if (err != 0) throw std::runtime_error("Failed to calculate the length of the wide string.");
+
+    std::wstring wstr(len, L'\0'); // Reserve space for wide string
+
+    // Convert to wide string
+    src = str; // Reset src pointer for the conversion
+    err = mbsrtowcs_s(nullptr, &wstr[0], len, &src, len, &state);
+    if (err != 0) throw std::runtime_error("Failed to convert to a wide string.");
+
+    // Remove the trailing null character (mbsrtowcs_s adds it)
+    wstr.resize(len - 1);
+
     return wstr;
 }
 
