@@ -198,6 +198,11 @@ void Timeline::render() {
         int indicatorX = m_trackStartXPos + (m_currentTime - m_scrollOffset) * m_timeLabelInterval / m_zoom;
         SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
         SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + static_cast<int>(m_videoTrackIDtoPosMap.size() + m_audioTrackIDtoPosMap.size()) * m_rowHeight);
+        // If zoomed in enough, also draw a small horizontal line (to show the frame length)
+        if (m_zoom <= m_indicatorFrameDisplayThreshold) {
+            int indicatorXplus1 = indicatorX + m_timeLabelInterval / m_zoom; // indicatorX + 1 frame
+            SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y + m_topBarheight, rect.x + indicatorXplus1, rect.y + m_topBarheight);
+        }
     }
 }
 

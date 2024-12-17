@@ -144,6 +144,7 @@ private:
     int m_scrollSpeed = 10;
     int m_timeLabelInterval = 70;
     int m_topBarheight = 30;
+    int m_indicatorFrameDisplayThreshold = 8;
     int m_trackDataWidth = 100;
     int m_trackStartXPos = m_trackDataWidth + 2;
     int m_trackHeight = 64;
