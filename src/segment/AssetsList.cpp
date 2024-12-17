@@ -306,12 +306,7 @@ bool AssetsList::loadFile(const char* filepath) {
 
         // Set the options for the SwrContext
         AVChannelLayout outChannelLayout = AV_CHANNEL_LAYOUT_STEREO;
-        AVChannelLayout inChannelLayout;
-        inChannelLayout.order = AV_CHANNEL_ORDER_NATIVE;
-        inChannelLayout.nb_channels = av_get_channel_layout_nb_channels(newAsset.audioData->codecContext->channels);
-        if (inChannelLayout.nb_channels > 0) {
-            inChannelLayout.u.mask = (1ULL << inChannelLayout.nb_channels) - 1; // Assuming all channels are used
-        }
+        AVChannelLayout inChannelLayout = newAsset.audioData->codecContext->ch_layout;
 
         if (swr_alloc_set_opts2(
             &newAsset.audioData->swrContext,
