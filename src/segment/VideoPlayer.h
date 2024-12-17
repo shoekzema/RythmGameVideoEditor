@@ -20,14 +20,19 @@ public:
     void handleEvent(SDL_Event& event) override;
     Segment* findTypeImpl(const std::type_info& type) override;
 private:
+    // Set the video display Rect. Keeps the video resolution, regardless of segment proportions.
     void setVideoRect(SDL_Rect* rect);
 
     // Render video and audio based on the segments in the timeline at the current timeline time.
     void renderTimeline();
 
+    // Play the current audio from the timeline
     void playAudio();
+
+    // Pause all audio playback
     void pausePlayback();
 
+    // Gets and renders the current video frame from a video segment
     void renderFrame(VideoSegment* videoSegment);
 
     // Render the current video frame of a videoSegment to the screen
@@ -35,7 +40,11 @@ private:
 
     // Get the current video frame from a videoSegment. The resulting frame is stored inside videoSegment.
     bool getVideoFrame(VideoSegment* videoSegment);
+
+    // Decode and process video frames until we get the current frame, returns true if successfull
     bool decodeAndProcessFrame(VideoSegment* videoSegment, Uint32 currentFrame);
+
+    // Process the current frame, returns true if successfull, false if this is not the right frame
     bool processFrame(VideoSegment* videoSegment, Uint32 currentFrame);
 
     // Play the current audio frame from an audioSegment.

@@ -63,7 +63,6 @@ void VideoPlayer::update(int x, int y, int w, int h) {
 }
 
 void VideoPlayer::setVideoRect(SDL_Rect* rect) {
-    // Set the video display Rect. Keeps the video resolution, regardless of segment proportions
     m_videoRect = *rect;
 
     // If the segment's height to width ratio is longer than the video, reshape the height and ypos

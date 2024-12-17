@@ -94,11 +94,22 @@ public:
     // Add a video and/or audio segment to the timeline at the mouse position
     bool addAssetSegments(AssetData* data, int mouseX, int mouseY);
 private:
+    // Get the video segment at the mouse position (nullptr if none)
     VideoSegment* getVideoSegmentAtPos(int x, int y);
+
+    // Get the audio segment at the mouse position (nullptr if none)
     AudioSegment* getAudioSegmentAtPos(int x, int y);
+
+    // Check if a video segment is colliding with another
     bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
+
+    // Check if an audio segment is colliding with another
     bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
+
+    // Get the trackID and type the mouse is in
     Track getTrackID(SDL_Point mousePoint);
+
+    // Get the track order position and the mouse is in
     int getTrackPos(int y);
 
     /**
@@ -110,7 +121,10 @@ private:
      */
     void addTrack(Track track, int videoOrAudio, bool above = true);
 
+    // Delete a track from the timeline
     void deleteTrack(Track track);
+
+    // Delete all currently selected segments
     void deleteSelectedSegments();
 private:
     bool m_playing = false;
@@ -141,6 +155,7 @@ private:
     Uint32 m_lastLegalFrame = 0; // The last frame selected to which moving the selected segments was legal
     Uint32 m_lastLegalLeftmostFrame = 0; // The last earliest/leftmost frame of all selected segments, to which moving was legal
 
+    // UI magic numbers
     Uint32 m_zoom = 512; // The amount to zoom out (minimum = 2, meaning a distance of 2 frame between timeline labels)
     Uint32 m_scrollOffset = 0; // The leftmost frame on screen
     int m_scrollSpeed = 10;
@@ -152,6 +167,7 @@ private:
     int m_trackHeight = 64;
     int m_rowHeight = m_trackHeight + 2; // Includes a pixel below and above
 
+    // Colors
     SDL_Color m_videoTrackBGColor      = { 35,  38,  41, 255 }; // Desaturated Blueish
     SDL_Color m_videoTrackDataColor    = { 33,  36,  39, 255 }; // Darker Desaturated Blueish
     SDL_Color m_videoTrackSegmentColor = { 19, 102, 162, 255 }; // Blue

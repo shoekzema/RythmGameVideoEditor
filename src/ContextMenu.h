@@ -5,11 +5,21 @@
 #include <functional>
 #include "util.h"
 
+/**
+ * @class ContextMenu
+ * @brief Small menu that shows a list of all actions you can do in a popup when you rightclick an element with specified contextmenu action.
+ *        Simply use ContextMenu::show(x, y, options) to add and display context action options.
+ */
 class ContextMenu {
 public:
+    /**
+     * @class MenuItem
+     * @brief A single context menu item that can be clicked to perform its corresponding action.
+     *        Can also be hierarchical, with multiple options under a single action type.
+     */
     struct MenuItem {
-        std::string label;
-        std::function<void()> action; // Function to execute on selection
+        std::string label;             // Displayed label for the menu item
+        std::function<void()> action;  // Function to execute on selection
         std::vector<MenuItem> submenu; // Submenu items
     };
 public:
@@ -22,6 +32,12 @@ public:
         return instance;
     }
 
+    /**
+     * @brief Shows the contextmenu with a list of actions that can be taken when selected.
+     * @param x The horizontal position for the topleft corner of the shown menu.
+     * @param y The vertical position for the topleft corner of the shown menu.
+     * @param items A list of context menu items that can be clicked to perform their action.
+     */
     static void show(int x, int y, const std::vector<MenuItem>& items) {
         auto& instance = getInstance();
         instance.m_mousePoint.x = x;
@@ -30,10 +46,12 @@ public:
         instance.m_isVisible = true;
     }
 
+    // Hides the context menu
     static void hide() {
         getInstance().m_isVisible = false;
     }
 
+    // Handle rendering of the menu
     static void render(SDL_Renderer* renderer) {
         auto& instance = getInstance(renderer);
         if (!instance.m_isVisible) return;
@@ -47,6 +65,10 @@ public:
         }
     }
 
+    /**
+     * @brief Handle user events.
+     * @param event User interaction event code.
+     */
     static void handleEvent(SDL_Event& event) {
         auto& instance = getInstance();
         if (!instance.m_isVisible) return;
@@ -70,6 +92,14 @@ public:
 private:
     ContextMenu(SDL_Renderer* renderer) : m_renderer(renderer) {}
 
+    /**
+     * @brief Render the Context menu and recursively its submenus
+     * @param renderer The renderer.
+     * @param x The horizontal position for the topleft corner.
+     * @param y The vertical position for the topleft corner.
+     * @param items The list of menu items that can be selected.
+     * @param hoveredIndex The item that the mouse is hovering over and should be highlighted.
+     */
     void renderMenu(SDL_Renderer* renderer, int x, int y, const std::vector<MenuItem>& items, int hoveredIndex) {
         SDL_Rect outlineRect = {
             x, y,
@@ -111,6 +141,7 @@ private:
         }
     }
 
+    // Handle what happens if the user hovers the mouse over an item in context menu.
     void handleHover(int menuX, int menuY, int mouseX, int mouseY, const std::vector<MenuItem>& items) {
         int textY = menuY;
 
@@ -178,6 +209,7 @@ private:
         m_hoveredIndex = -1;
     }
 
+    // Handle what happens if the user click an item in the context menu.
     bool handleClick(int menuX, int menuY, int mouseX, int mouseY, const std::vector<MenuItem>& items) {
         int textY = menuY;
 
