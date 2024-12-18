@@ -26,14 +26,14 @@ set(SOURCES
 # Add source to this project's executable.
 add_executable (RythmGameVideoEditor  "src/main.cpp" 
     "src/Application.h" "src/Application.cpp" 
-    "src/segment/Segment.h" "src/segment/Segment.cpp" 
-    "src/segment/SegmentHSplit.h" "src/segment/SegmentHSplit.cpp" 
-    "src/segment/SegmentVSplit.h" "src/segment/SegmentVSplit.cpp" 
-    "src/segment/AssetsList.h" "src/segment/AssetsList.cpp" 
-    "src/segment/VideoPlayer.h" "src/segment/VideoPlayer.cpp" 
-    "src/segment/TimeLine.h" "src/segment/Timeline.cpp" 
+    "src/window/Window.h" "src/window/Window.cpp" 
+    "src/window/WindowHSplit.h" "src/window/WindowHSplit.cpp" 
+    "src/window/WindowVSplit.h" "src/window/WindowVSplit.cpp" 
+    "src/window/AssetsList.h" "src/window/AssetsList.cpp" 
+    "src/window/VideoPlayer.h" "src/window/VideoPlayer.cpp" 
+    "src/window/TimeLine.h" "src/window/Timeline.cpp" 
     "src/util.h" "src/util.cpp" 
-    "src/VideoData.h" "src/segment/SegmentIncludes.h" "src/ContextMenu.h")
+    "src/VideoData.h" "src/window/WindowIncludes.h" "src/ContextMenu.h")
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)

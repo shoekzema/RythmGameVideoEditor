@@ -2,8 +2,8 @@
 #include <iostream>
 #include "VideoPlayer.h"
 
-VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color)
+VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+    : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     setVideoRect(&rect);
 
@@ -45,13 +45,13 @@ void VideoPlayer::render() {
         renderTimeline();
     }
     else {
-        // Find the root segment
-        Segment* rootSegment = this;
-        while (rootSegment->parent) {
-            rootSegment = rootSegment->parent;
+        // Find the root window
+        Window* rootWindow = this;
+        while (rootWindow->parent) {
+            rootWindow = rootWindow->parent;
         }
-        // Find the timeline segment and save it
-        m_timeline = rootSegment->findType<Timeline>();
+        // Find the timeline and save it
+        m_timeline = rootWindow->findType<Timeline>();
     }
 }
 
@@ -65,12 +65,12 @@ void VideoPlayer::update(int x, int y, int w, int h) {
 void VideoPlayer::setVideoRect(SDL_Rect* rect) {
     m_videoRect = *rect;
 
-    // If the segment's height to width ratio is longer than the video, reshape the height and ypos
+    // If the window's height to width ratio is longer than the video, reshape the height and ypos
     if (rect->w * m_WtoH_ratioH < rect->h * m_WtoH_ratioW) { // for 16:9 ratio
         m_videoRect.h = rect->w * m_WtoH_ratioH / m_WtoH_ratioW;
         m_videoRect.y = rect->y + (rect->h - m_videoRect.h) / 2;
     }
-    // If the segment's width to height ratio is wider than the video, reshape the width and xpos
+    // If the window's width to height ratio is wider than the video, reshape the width and xpos
     if (rect->w * m_WtoH_ratioH > rect->h * m_WtoH_ratioW) { // for 16:9 ratio
         m_videoRect.w = rect->h * m_WtoH_ratioW / m_WtoH_ratioH;
         m_videoRect.x = rect->x + (rect->w - m_videoRect.w) / 2;
@@ -356,7 +356,7 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
 
                 // Resample and convert audio to SDL format
                 int numSamples = swr_convert(audioSegment->audioData->swrContext,
-                    &m_audioBuffer,                                          // output buffer
+                    &m_audioBuffer,                                        // output buffer
                     audioSegment->audioData->frame->nb_samples * 2,        // number of samples to output (2 for stereo)
                     (const uint8_t**)audioSegment->audioData->frame->data, // input buffer
                     audioSegment->audioData->frame->nb_samples);           // number of input samples
@@ -393,7 +393,7 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
     return;
 }
 
-Segment* VideoPlayer::findTypeImpl(const std::type_info& type) {
+Window* VideoPlayer::findTypeImpl(const std::type_info& type) {
     if (type == typeid(VideoPlayer)) {
         return this;
     }

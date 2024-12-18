@@ -1,8 +1,8 @@
 #pragma once
-#include "Segment.h"
+#include "Window.h"
 
-#include "SegmentHSplit.h"
-#include "SegmentVSplit.h"
+#include "WindowHSplit.h"
+#include "WindowVSplit.h"
 
 #include "AssetsList.h"
 #include "Timeline.h"

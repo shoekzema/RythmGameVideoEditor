@@ -3,7 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
-#include "Segment.h"
+#include "Window.h"
 #include "EventManager.h"
 #include "VideoData.h"
 
@@ -60,15 +60,15 @@ struct Track {
  * @class TimeLine
  * @brief Window segment that shows the timeline. Editing is mostly done here.
  */
-class Timeline : public Segment {
+class Timeline : public Window {
 public:
-    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 42, 46, 50, 255 });
+    Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 42, 46, 50, 255 });
     ~Timeline();
 
     void render() override;
     void update(int x, int y, int w, int h) override;
     void handleEvent(SDL_Event& event) override;
-    Segment* findTypeImpl(const std::type_info& type) override;
+    Window* findTypeImpl(const std::type_info& type) override;
 
     // Get the video segment that should currently be playing
     VideoSegment* getCurrentVideoSegment();

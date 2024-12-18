@@ -1,7 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <SDL_ttf.h>
-#include "segment/Segment.h"
+#include "window/Window.h"
 
 class Application {
 public:
@@ -17,7 +17,7 @@ private:
     // Handle user interaction events
     void handleEvents();
 
-    // Render the window and all active segments
+    // Render the screen and all active windows
     void render();
 private:
     SDL_Window* m_window = nullptr;
@@ -25,8 +25,8 @@ private:
     EventManager m_eventManager;
     bool m_running = false;
     int m_screenWidth, m_screenHeight;
-    Segment* m_rootSegment; // Root of the window segment hierarchy
+    Window* m_rootWindow; // Root of the window segment hierarchy
     bool m_isDragging = false;
-    AssetData* m_draggedAsset = nullptr; // Shared variables for dragging between segments
+    AssetData* m_draggedAsset = nullptr; // Shared variables for dragging between windows
     TTF_Font* m_font = nullptr;
 };

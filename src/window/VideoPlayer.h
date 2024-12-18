@@ -1,7 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <iostream>
-#include "Segment.h"
+#include "Window.h"
 #include "Timeline.h"
 #include "EventManager.h"
 #include "VideoData.h"
@@ -10,17 +10,17 @@
  * @class VideoPlayer
  * @brief Window segment that can render videos.
  */
-class VideoPlayer : public Segment {
+class VideoPlayer : public Window {
 public:
-    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
+    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
     ~VideoPlayer();
 
     void render() override;
     void update(int x, int y, int w, int h) override;
     void handleEvent(SDL_Event& event) override;
-    Segment* findTypeImpl(const std::type_info& type) override;
+    Window* findTypeImpl(const std::type_info& type) override;
 private:
-    // Set the video display Rect. Keeps the video resolution, regardless of segment proportions.
+    // Set the video display Rect. Keeps the video resolution, regardless of window proportions.
     void setVideoRect(SDL_Rect* rect);
 
     // Render video and audio based on the segments in the timeline at the current timeline time.
@@ -52,7 +52,7 @@ private:
 private:
     SDL_Texture* m_videoTexture = nullptr; // Texture for the video frame
     VideoData* m_videoData = nullptr; // Holds pointers to all VideoData for ffmpeg to be able to read frames
-    Timeline* m_timeline = nullptr; // Pointer towards the timeline segment
+    Timeline* m_timeline = nullptr; // Pointer towards the timeline
     SDL_Rect m_videoRect; // Rectangle to display the video in
     int m_WtoH_ratioW = 16; // Width to height ratio: width (default 1920:1080 = 16:9)
     int m_WtoH_ratioH = 9; // Width to height ratio: height (default 1920:1080 = 16:9)

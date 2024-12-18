@@ -1,22 +1,22 @@
 #include <iostream>
 #include "Application.h"
 #include "util.h"
-#include "segment/SegmentIncludes.h"
+#include "window/WindowIncludes.h"
 #include "ContextMenu.h"
 
 Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {
     if (init()) {
-        SegmentHSplit* root = new SegmentHSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager);
-            SegmentVSplit* top = new SegmentVSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
-            root->setTopSegment(top);
-                Segment* assetList   = new AssetsList(   0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
-                Segment* videoPlayer = new VideoPlayer(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
-                top->setLeftSegment(assetList);
-                top->setRightSegment(videoPlayer);
-            Segment* timeLine = new Timeline(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
-            root->setBottomSegment(timeLine);
+        WindowHSplit* root = new WindowHSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager);
+            WindowVSplit* top = new WindowVSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
+            root->setTopWindow(top);
+                Window* assetList   = new AssetsList(   0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                Window* videoPlayer = new VideoPlayer(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                top->setLeftWindow(assetList);
+                top->setRightWindow(videoPlayer);
+            Window* timeLine = new Timeline(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
+            root->setBottomWindow(timeLine);
 
-        m_rootSegment = root;
+        m_rootWindow = root;
         m_running = true;
     }
 }
@@ -57,7 +57,7 @@ bool Application::init() {
 }
 
 Application::~Application() {
-    if (m_rootSegment) delete m_rootSegment;
+    if (m_rootWindow) delete m_rootWindow;
     if (m_renderer) SDL_DestroyRenderer(m_renderer);
     if (m_window) SDL_DestroyWindow(m_window);
     if (m_font) TTF_CloseFont(m_font);
@@ -69,9 +69,9 @@ void Application::handleEvents() {
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) {
-        // Pass event to the root segment (which will pass it to all its child segments)
-        if (m_rootSegment) {
-            m_rootSegment->handleEvent(event);
+        // Pass event to the root window (which will pass it to all its child windows)
+        if (m_rootWindow) {
+            m_rootWindow->handleEvent(event);
         }
         // Pass event to the context menu
         ContextMenu::handleEvent(event);
@@ -90,7 +90,7 @@ void Application::handleEvents() {
                 appWindowSizeY = newHeight;
 
                 // Handle the window resize
-                m_rootSegment->update(0, 0, newWidth, newHeight);
+                m_rootWindow->update(0, 0, newWidth, newHeight);
             }
             break;
         }
@@ -98,8 +98,8 @@ void Application::handleEvents() {
             if (event.button.button == SDL_BUTTON_LEFT) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
-                // Check if pressed inside an AssetList segment
-                AssetsList* assetList = m_rootSegment->findType<AssetsList>();
+                // Check if pressed inside an AssetList window
+                AssetsList* assetList = m_rootWindow->findType<AssetsList>();
                 if (SDL_PointInRect(&mouseButton, &assetList->rect)) {
                     m_draggedAsset = assetList->getAssetFromAssetList(mouseButton.x, mouseButton.y);
                     m_isDragging = true;
@@ -111,8 +111,8 @@ void Application::handleEvents() {
             if (m_isDragging && m_draggedAsset) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
-                // Check if released inside a Timeline segment
-                Timeline* timeline = m_rootSegment->findType<Timeline>();
+                // Check if released inside a Timeline window
+                Timeline* timeline = m_rootWindow->findType<Timeline>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
                     if (timeline->addAssetSegments(m_draggedAsset, mouseButton.x, mouseButton.y)) {
@@ -139,9 +139,9 @@ void Application::render() {
     SDL_SetRenderDrawColor(m_renderer, 255, 0, 0, 255); // red (easy to find problems)
     SDL_RenderClear(m_renderer);
 
-    // Render segments
-    if (m_rootSegment) {
-        m_rootSegment->render();
+    // Render windows
+    if (m_rootWindow) {
+        m_rootWindow->render();
     }
 
     ContextMenu::render(m_renderer);

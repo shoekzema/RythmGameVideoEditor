@@ -8,8 +8,8 @@
 #include "util.h"
 #include "ContextMenu.h"
 
-Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color) 
+Timeline::Timeline(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+    : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     m_videoTrackIDtoPosMap[0] = 0;
     m_videoTrackIDtoPosMap[1] = 1;
@@ -210,7 +210,7 @@ void Timeline::update(int x, int y, int w, int h) {
 }
 
 void Timeline::handleEvent(SDL_Event& event) {
-    static bool mouseInThisSegment = false;
+    static bool mouseInThisWindow = false;
 
     switch (event.type) {
     case SDL_KEYDOWN: {
@@ -248,7 +248,7 @@ void Timeline::handleEvent(SDL_Event& event) {
     }
     case SDL_MOUSEBUTTONDOWN: {
         SDL_Point mouseButton = { event.button.x, event.button.y };
-        // If clicked outside this segment, do nothing
+        // If clicked outside this window, do nothing
         if (!SDL_PointInRect(&mouseButton, &rect)) break;
 
         if (event.button.button == SDL_BUTTON_LEFT) {
@@ -409,7 +409,7 @@ void Timeline::handleEvent(SDL_Event& event) {
     }
     case SDL_MOUSEMOTION: {
         SDL_Point mousePoint = { event.motion.x, event.motion.y };
-        mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+        mouseInThisWindow = SDL_PointInRect(&mousePoint, &rect) ? true : false;
 
         // Changing current time
         if (m_isMovingCurrentTime) {
@@ -573,7 +573,7 @@ void Timeline::handleEvent(SDL_Event& event) {
         break;
     }
     case SDL_MOUSEWHEEL: {
-        if (!mouseInThisSegment) break;
+        if (!mouseInThisWindow) break;
 
         // Get the current modifier state (Shift, Ctrl, etc.)
         SDL_Keymod mod = SDL_GetModState();
@@ -879,7 +879,7 @@ void Timeline::setCurrentTime(Uint32 time) {
     m_startPlayTime = time;
 }
 
-Segment* Timeline::findTypeImpl(const std::type_info& type) {
+Window* Timeline::findTypeImpl(const std::type_info& type) {
     if (type == typeid(Timeline)) {
         return this;
     }
@@ -923,7 +923,7 @@ int Timeline::getTrackPos(int y) {
 bool Timeline::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     SDL_Point mousePoint = { mouseX, mouseY };
 
-    // If outside this segment, do nothing
+    // If outside this window, do nothing
     if (!SDL_PointInRect(&mousePoint, &rect)) return false;
 
     // If in the left column, do nothing

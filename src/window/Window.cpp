@@ -1,27 +1,27 @@
 #include <SDL.h>
-#include "Segment.h"
+#include "Window.h"
 
-Segment::Segment(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
+Window::Window(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : p_renderer(renderer), p_eventManager(eventManager), rect({ x, y, w, h }), parent(parent), p_color(color) { }
 
-Segment::~Segment() {
+Window::~Window() {
     // No need to delete renderer since it is managed elsewhere
 }
 
-void Segment::render() {
+void Window::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect);
 }
 
-void Segment::update(int x, int y, int w, int h) {
+void Window::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
-void Segment::handleEvent(SDL_Event& event) { }
+void Window::handleEvent(SDL_Event& event) { }
 
-Segment* Segment::findTypeImpl(const std::type_info& type) {
+Window* Window::findTypeImpl(const std::type_info& type) {
     // Base implementation: return this if the type matches
-    if (type == typeid(Segment)) {
+    if (type == typeid(Window)) {
         return this;
     }
     return nullptr;

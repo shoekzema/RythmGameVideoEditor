@@ -2,7 +2,7 @@
 #include <SDL.h>
 #include <iostream>
 #include <functional>
-#include "Segment.h"
+#include "Window.h"
 #include "EventManager.h"
 #include "VideoData.h"
 
@@ -17,15 +17,15 @@ struct Asset {
  * @class AssetsList
  * @brief Window segment containing the list of assets loaded in the current project.
  */
-class AssetsList : public Segment {
+class AssetsList : public Window {
 public:
-    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
+    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
     ~AssetsList();
 
     void render() override;
     void update(int x, int y, int w, int h) override;
     void handleEvent(SDL_Event& event) override;
-    Segment* findTypeImpl(const std::type_info& type) override;
+    Window* findTypeImpl(const std::type_info& type) override;
 
     /**
      * @brief Retrieve the asset data corresponding to the mouse position
@@ -68,7 +68,7 @@ private:
     int m_assetImageHeight = 54;
     int m_assetHeight = m_assetImageHeight + 2; // An additional two pixels between images
     int m_scrollBarWidth = 6;
-    int m_scrollBarXPos = 6; // x-pos from the right of the segment
+    int m_scrollBarXPos = 6; // x-pos from the right of the window
     SDL_Color m_scrollBarBGColor = { 27, 30, 32, 255 };
     SDL_Color m_scrollBarColor = { 48, 91, 115, 255 };
     SDL_Color m_scrollBarBorderColor = { 80, 84, 87, 255 };

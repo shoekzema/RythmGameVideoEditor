@@ -5,8 +5,8 @@
 #include "AssetsList.h"
 #include "util.h"
 
-AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Segment* parent, SDL_Color color)
-    : Segment(x, y, w, h, renderer, eventManager, parent, color) 
+AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+    : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     m_altColor = {
         static_cast<Uint8>(std::min(color.r + 8, 255)),
@@ -81,7 +81,7 @@ void AssetsList::render() {
 void AssetsList::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 
-    // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the segment size, it will scroll up if possible)
+    // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the window size, it will scroll up if possible)
     int assetListLength;
     assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
     if (assetListLength > rect.h) {
@@ -90,16 +90,16 @@ void AssetsList::update(int x, int y, int w, int h) {
 }
 
 void AssetsList::handleEvent(SDL_Event& event) {
-    static bool mouseInThisSegment = false;
+    static bool mouseInThisWindow = false;
 
     switch (event.type) {
     case SDL_MOUSEMOTION: {
         SDL_Point mousePoint = { event.motion.x, event.motion.y };
-        mouseInThisSegment = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+        mouseInThisWindow = SDL_PointInRect(&mousePoint, &rect) ? true : false;
         break;
     }
     case SDL_MOUSEWHEEL: {
-        if (!mouseInThisSegment) break;
+        if (!mouseInThisWindow) break;
 
         // Check if scrolling neccesary
         int assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
@@ -114,7 +114,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
         break;
     }
     case SDL_DROPFILE: {
-        if (!mouseInThisSegment) break;
+        if (!mouseInThisWindow) break;
 
         const char* droppedFile = event.drop.file;
         loadFile(droppedFile);
@@ -124,7 +124,7 @@ void AssetsList::handleEvent(SDL_Event& event) {
     }
 }
 
-Segment* AssetsList::findTypeImpl(const std::type_info& type) {
+Window* AssetsList::findTypeImpl(const std::type_info& type) {
     if (type == typeid(AssetsList)) {
         return this;
     }
