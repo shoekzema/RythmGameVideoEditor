@@ -1,6 +1,6 @@
 #include <SDL.h>
 #include <iostream>
-#include "VideoPlayer.h"
+#include "VideoPlayerWindow.h"
 
 VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)

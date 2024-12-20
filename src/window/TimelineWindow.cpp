@@ -4,7 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <SDL_ttf.h>
-#include "Timeline.h"
+#include "TimelineWindow.h"
 #include "util.h"
 #include "ContextMenu.h"
 

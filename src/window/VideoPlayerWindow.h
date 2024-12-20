@@ -2,7 +2,7 @@
 #include <SDL.h>
 #include <iostream>
 #include "Window.h"
-#include "Timeline.h"
+#include "TimelineWindow.h"
 #include "EventManager.h"
 #include "VideoData.h"
 

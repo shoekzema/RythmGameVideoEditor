@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <SDL.h>
 #include <SDL_ttf.h>
-#include "AssetsList.h"
+#include "AssetsListWindow.h"
 #include "util.h"
 
 AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
