@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <iostream>
+#include "TimelineWindow.h"
 #include "VideoPlayerWindow.h"
 
 VideoPlayerWindow::VideoPlayerWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
@@ -51,7 +52,7 @@ void VideoPlayerWindow::render() {
             rootWindow = rootWindow->parent;
         }
         // Find the timeline and save it
-        m_timeline = rootWindow->findType<TimeLineWindow>();
+        m_timeline = rootWindow->findType<TimeLineWindow>()->tempGetTimeline();
     }
 }
 

@@ -22,76 +22,22 @@ public:
     void handleEvent(SDL_Event& event) override;
     Window* findTypeImpl(const std::type_info& type) override;
 
-    // Get the video segment that should currently be playing
-    VideoSegment* getCurrentVideoSegment();
-
-    // Get the audio segment that should currently be playing
-    AudioSegment* getCurrentAudioSegment();
-
-    // Returns if the timeline is playing
-    bool isPlaying();
-
-    // Get the timeline's target frames per second
-    int getFPS();
-
-    // Set the timeline's target frames per second
-    void setFPS(int fps);
-
-    // Get the current time in the timeline (as a frameIndex)
-    Uint32 getCurrentTime();
-
-    // Set the current time (in seconds) in the timeline
-    void setCurrentTime(Uint32 time);
-
     // Add a video and/or audio segment to the timeline at the mouse position
     bool addAssetSegments(AssetData* data, int mouseX, int mouseY);
+
+    Timeline* tempGetTimeline() { return m_timeline; };
 private:
-    // Get the video segment at the mouse position (nullptr if none)
-    VideoSegment* getVideoSegmentAtPos(int x, int y);
-
-    // Get the audio segment at the mouse position (nullptr if none)
-    AudioSegment* getAudioSegmentAtPos(int x, int y);
-
-    // Check if a video segment is colliding with another
-    bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
-
-    // Check if an audio segment is colliding with another
-    bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
-
     // Get the trackID and type the mouse is in
     Track getTrackID(SDL_Point mousePoint);
 
-    // Get the track order position and the mouse is in
+    // Get the track order position the mouse is in
     int getTrackPos(int y);
-
-    /**
-     * @brief Add a new track to the timeline.
-     * @param trackID The track from which we relatively add a new track.
-     * @param trackType The type of track of trackID.
-     * @param above Where to put the new track relative to the selected Track.
-     * @param videoOrAudio What type of track to add. 0 for video, 1 for audio, 2 for both (AV).
-     */
-    void addTrack(Track track, int videoOrAudio, bool above = true);
-
-    // Delete a track from the timeline
-    void deleteTrack(Track track);
 
     // Delete all currently selected segments
     void deleteSelectedSegments();
 private:
-    bool m_playing = false;
-    std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
-    std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments in the timeline.
-    std::unordered_map<int, int> m_videoTrackIDtoPosMap; // Maps videoTrackID to its position order
-    std::unordered_map<int, int> m_audioTrackIDtoPosMap; // Maps audioTrackID to its position order
-    std::unordered_map<int, int> m_videoTrackPosToIDMap; // Maps position order to videoTrackID
-    std::unordered_map<int, int> m_audioTrackPosToIDMap; // Maps position order audioTrackID
-    int m_nextVideoTrackID; // Keeps track of the next available videoTrackID
-    int m_nextAudioTrackID; // Keeps track of the next available audioTrackID
-    Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
-    Uint32 m_startPlayTime = 0; // The time in the timeline where playing starts from (in frames)
-    Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
-    int m_fps = 60; // Target frames per second to render in.
+    Timeline* m_timeline;
+    bool tempAddedVid = false;
 
     // Interaction variables
     std::vector<VideoSegment*> m_selectedVideoSegments;

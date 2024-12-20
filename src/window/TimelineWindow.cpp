@@ -11,20 +11,7 @@
 TimeLineWindow::TimeLineWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
-    m_videoTrackIDtoPosMap[0] = 0;
-    m_videoTrackIDtoPosMap[1] = 1;
-
-    m_audioTrackIDtoPosMap[0] = 0;
-    m_audioTrackIDtoPosMap[1] = 1;
-
-    m_videoTrackPosToIDMap[0] = 0;
-    m_videoTrackPosToIDMap[1] = 1;
-
-    m_audioTrackPosToIDMap[0] = 0;
-    m_audioTrackPosToIDMap[1] = 1;
-
-    m_nextVideoTrackID = 2;
-    m_nextAudioTrackID = 2;
+    m_timeline = new Timeline();
 }
 
 TimeLineWindow::~TimeLineWindow() {
@@ -32,6 +19,9 @@ TimeLineWindow::~TimeLineWindow() {
 }
 
 void TimeLineWindow::render() {
+    if (tempAddedVid && m_selectedVideoSegments.empty()) {
+        int ijk = 0;
+    }
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect);
 
@@ -42,7 +32,7 @@ void TimeLineWindow::render() {
     SDL_SetRenderDrawColor(p_renderer, m_timeLabelColor.r, m_timeLabelColor.g, m_timeLabelColor.b, m_timeLabelColor.a);
     while (xPos < rect.x + rect.w) {
         SDL_Rect textRect = renderTextWithCustomSpacing(p_renderer, xPos, yPos,
-            getFont(), formatTime(timeLabel, m_fps).c_str(),
+            getFont(), formatTime(timeLabel, m_timeline->getFPS()).c_str(),
             -1, m_timeLabelColor);
 
         SDL_RenderDrawLine(p_renderer, xPos, rect.y + textRect.h, xPos, rect.y + m_topBarheight); // Big label
@@ -53,8 +43,8 @@ void TimeLineWindow::render() {
     }
 
     // Draw all video tracks
-    for (int i = 0; i < m_videoTrackIDtoPosMap.size(); i++) {
-        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - i) * m_rowHeight;
+    for (int i = 0; i < m_timeline->getVideoTrackCount(); i++) {
+        int trackYpos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() - 1 - i) * m_rowHeight;
 
         // Draw the background that everything will be overlayed on. What is left are small lines in between
         SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
@@ -78,7 +68,7 @@ void TimeLineWindow::render() {
     }
 
     // Draw all video segments on the video tracks
-    for (VideoSegment& segment : m_videoSegments) {
+    for (VideoSegment& segment : *m_timeline->getAllVideoSegments()) {
         // If fully outside render view, do not render
         if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
 
@@ -90,8 +80,8 @@ void TimeLineWindow::render() {
         }
 
         int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int trackPos = m_videoTrackIDtoPosMap[segment.trackID];
-        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - trackPos) * m_rowHeight;
+        int trackPos = m_timeline->getVideoTrackPos(segment.trackID);
+        int renderYPos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() - 1 - trackPos) * m_rowHeight;
         int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
         // Draw the outlines
@@ -134,8 +124,8 @@ void TimeLineWindow::render() {
     }
 
     // Draw all audio tracks
-    for (int i = 0; i < m_audioTrackIDtoPosMap.size(); i++) {
-        int trackYpos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) + i) * m_rowHeight;
+    for (int i = 0; i < m_timeline->getAudioTrackCount(); i++) {
+        int trackYpos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + i) * m_rowHeight;
 
         // Draw the background that everything will be overlayed on. What is left are small lines in between
         SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
@@ -159,7 +149,7 @@ void TimeLineWindow::render() {
     }
 
     // Draw all audio segments on the audio tracks
-    for (AudioSegment& segment : m_audioSegments) {
+    for (AudioSegment& segment : *m_timeline->getAllAudioSegments()) {
         // If fully outside render view, do not render
         if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
 
@@ -171,8 +161,8 @@ void TimeLineWindow::render() {
         }
 
         int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int trackPos = m_audioTrackIDtoPosMap[segment.trackID];
-        int renderYPos = rect.y + m_topBarheight + (static_cast<int>(m_videoTrackIDtoPosMap.size()) + trackPos) * m_rowHeight;
+        int trackPos = m_timeline->getAudioTrackPos(segment.trackID);
+        int renderYPos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + trackPos) * m_rowHeight;
         int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
 
         // Draw the outlines
@@ -192,11 +182,11 @@ void TimeLineWindow::render() {
     }
 
     // If the currentTime is higher than the scroll offset (leftmost frame)
-    if (m_scrollOffset <= m_currentTime) {
+    if (m_scrollOffset <= m_timeline->getCurrentTime()) {
         // Draw the current time indicator (a vertical line)
-        int indicatorX = m_trackStartXPos + (m_currentTime - m_scrollOffset) * m_timeLabelInterval / m_zoom;
+        int indicatorX = m_trackStartXPos + (m_timeline->getCurrentTime() - m_scrollOffset) * m_timeLabelInterval / m_zoom;
         SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
-        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + static_cast<int>(m_videoTrackIDtoPosMap.size() + m_audioTrackIDtoPosMap.size()) * m_rowHeight);
+        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + m_timeline->getAudioTrackCount()) * m_rowHeight);
         // If zoomed in enough, also draw a small horizontal line (to show the frame length)
         if (m_zoom <= m_indicatorFrameDisplayThreshold) {
             int indicatorXplus1 = indicatorX + m_timeLabelInterval / m_zoom; // indicatorX + 1 frame
@@ -217,14 +207,7 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
         switch (event.key.keysym.sym) {
         // Play / Pause
         case SDLK_SPACE: {
-            if (m_playing) {
-                m_playing = false;
-                m_currentTime = m_startPlayTime;
-            }
-            else {
-                m_playing = true;
-                m_startTime = SDL_GetTicks() - static_cast<Uint32>(m_currentTime * 1000 / m_fps);
-            }
+            m_timeline->togglePlaying();
             break;
         }
         // Deleting segments / tracks
@@ -234,13 +217,13 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
         }
         // Move one frame up the timeline
         case SDLK_RIGHT: {
-            setCurrentTime(getCurrentTime() + 1);
+            m_timeline->setCurrentTime(m_timeline->getCurrentTime() + 1);
             break;
         }
         // Move one frame down the timeline
         case SDLK_LEFT: {
-            Uint32 currentTime = getCurrentTime();
-            if (currentTime != 0) setCurrentTime(currentTime - 1);
+            Uint32 currentTime = m_timeline->getCurrentTime();
+            if (currentTime != 0) m_timeline->setCurrentTime(currentTime - 1);
             break;
         }
         }
@@ -251,116 +234,12 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
         // If clicked outside this window, do nothing
         if (!SDL_PointInRect(&mouseButton, &rect)) break;
 
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            if (m_isDragging) break;
+        if (m_isDragging) break;
 
-            // If clicked in the left column, do nothing
-            if (mouseButton.x < m_trackStartXPos) break;
-
-            Uint32 clickedFrame = (mouseButton.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
-
-            VideoSegment* clickedVideoSegment = getVideoSegmentAtPos(mouseButton.x, mouseButton.y);
-            AudioSegment* clickedAudioSegment = getAudioSegmentAtPos(mouseButton.x, mouseButton.y);
-
-            // If we clicked on a video segment
-            if (clickedVideoSegment) {
-                // If shift is held, toggle selection of the clicked segment
-                if (SDL_GetModState() & KMOD_SHIFT) {
-                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
-                        m_selectedVideoSegments.push_back(clickedVideoSegment);
-                    }
-                    else {
-                        m_selectedVideoSegments.erase(std::remove(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment), m_selectedVideoSegments.end());
-                    }
-                }
-                else {
-                    // If shift is not held and the clicked segment was not already selected
-                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
-                        m_selectedVideoSegments.clear();
-                        m_selectedAudioSegments.clear();
-                        m_selectedVideoSegments.push_back(clickedVideoSegment);
-                    }
-                    // Start holding/dragging logic
-                    m_isHolding = true;
-                    m_mouseHoldStartX = mouseButton.x;
-                    int trackPos = m_videoTrackIDtoPosMap[clickedVideoSegment->trackID];
-                    m_lastLegalTrackPos = trackPos;
-                    m_selectedMaxTrackPos = trackPos;
-                    m_selectedMinTrackPos = trackPos;
-                    m_lastLegalFrame = clickedFrame;
-                    m_lastLegalLeftmostFrame = clickedFrame;
-
-                    // Find the earliest/leftmost frame position of all selected segments
-                    // Also find the highest and lowest track order positions
-                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                        if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
-                        int segmentTrackPos = m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID];
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                        if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
-                        int segmentTrackPos = m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID];
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                }
-                break;
-            }
-            // If we selected an audio segment
-            else if (clickedAudioSegment) {
-                // If shift is held, toggle selection of the clicked segment
-                if (SDL_GetModState() & KMOD_SHIFT) {
-                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
-                        m_selectedAudioSegments.push_back(clickedAudioSegment);
-                    }
-                    else {
-                        m_selectedAudioSegments.erase(std::remove(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment), m_selectedAudioSegments.end());
-                    }
-                }
-                else {
-                    // If shift is not held and the clicked segment was not already selected
-                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
-                        m_selectedVideoSegments.clear();
-                        m_selectedAudioSegments.clear();
-                        m_selectedAudioSegments.push_back(clickedAudioSegment);
-                    }
-                    m_isHolding = true;
-                    m_mouseHoldStartX = mouseButton.x;
-                    int trackPos = m_audioTrackIDtoPosMap[clickedAudioSegment->trackID];
-                    m_lastLegalTrackPos = trackPos;
-                    m_selectedMaxTrackPos = trackPos;
-                    m_selectedMinTrackPos = trackPos;
-                    m_lastLegalFrame = clickedFrame;
-                    m_lastLegalLeftmostFrame = clickedFrame;
-
-                    // Find the earliest/leftmost frame position of all selected segments
-                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                        if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
-                        int segmentTrackPos = m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID];
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                        if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
-                        int segmentTrackPos = m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID];
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                }
-                break;
-            }
-
-            // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
-            m_playing = false;
-            m_isMovingCurrentTime = true;
-            setCurrentTime(clickedFrame);
-            m_selectedVideoSegments.clear();
-            m_selectedAudioSegments.clear();
-        }
-        else if (event.button.button == SDL_BUTTON_RIGHT) {
-            // If clicked in the left column
-            if (mouseButton.x < m_trackStartXPos) {
+        // If clicked in the left column
+        if (mouseButton.x < m_trackStartXPos) {
+            // If right clicked
+            if (event.button.button == SDL_BUTTON_RIGHT) {
                 Track track = getTrackID(mouseButton);
                 // If in a track, show Track options
                 if (track.trackID >= 0) {
@@ -368,42 +247,158 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
                     if (track.trackID < 0) break;
                     std::vector<ContextMenu::MenuItem> contextMenuOptions = {
                         { "Add Track", nullptr, {
-                            { "Add AV Track Above",    [this, track]() { addTrack(track, 2, true);  } },
-                            { "Add AV Track Below",    [this, track]() { addTrack(track, 2, false); } },
-                            { "Add Video Track Above", [this, track]() { addTrack(track, 0, true);  } },
-                            { "Add Video Track Below", [this, track]() { addTrack(track, 0, false); } },
-                            { "Add Audio Track Above", [this, track]() { addTrack(track, 1, true);  } },
-                            { "Add Audio Track Below", [this, track]() { addTrack(track, 1, false); } }
+                            { "Add AV Track Above",    [this, track]() { m_timeline->addTrack(track, 2, true);  } },
+                            { "Add AV Track Below",    [this, track]() { m_timeline->addTrack(track, 2, false); } },
+                            { "Add Video Track Above", [this, track]() { m_timeline->addTrack(track, 0, true);  } },
+                            { "Add Video Track Below", [this, track]() { m_timeline->addTrack(track, 0, false); } },
+                            { "Add Audio Track Above", [this, track]() { m_timeline->addTrack(track, 1, true);  } },
+                            { "Add Audio Track Below", [this, track]() { m_timeline->addTrack(track, 1, false); } }
                         }},
-                        { "Delete Track", [this, track]() { deleteTrack(track); } }
+                        { "Delete Track", [this, track]() { m_timeline->deleteTrack(track); } }
                     };
                     ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
                 }
-                break;
             }
-            // If clicked on a segment
-            VideoSegment* clickedVideoSegment = getVideoSegmentAtPos(mouseButton.x, mouseButton.y);
-            AudioSegment* clickedAudioSegment = getAudioSegmentAtPos(mouseButton.x, mouseButton.y);
+            break;
+        }
 
-            if (clickedVideoSegment || clickedAudioSegment) {
-                // If not already selected, unselect everything else and select this one
-                if (clickedVideoSegment && std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
-                    m_selectedVideoSegments.clear();
-                    m_selectedAudioSegments.clear();
-                    m_selectedVideoSegments.push_back(clickedVideoSegment);
-                }
-                else if (clickedAudioSegment && std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
-                    m_selectedVideoSegments.clear();
-                    m_selectedAudioSegments.clear();
-                    m_selectedAudioSegments.push_back(clickedAudioSegment);
-                }
+        Uint32 clickedFrame = (mouseButton.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
-                // Show selected segments options
-                std::vector<ContextMenu::MenuItem> contextMenuOptions = {
-                    { "Delete Selected Item(s)", [this]() { deleteSelectedSegments(); } }
-                };
-                ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
+        // If clicked in the videoTrack area
+        if (mouseButton.y > rect.y + m_topBarheight && mouseButton.y < rect.y + m_topBarheight + m_timeline->getVideoTrackCount() * m_trackHeight)
+        {
+            int selectedTrackPos = m_timeline->getVideoTrackCount() - 1 - ((mouseButton.y - rect.y - m_topBarheight) / m_trackHeight);
+            VideoSegment* clickedVideoSegment = m_timeline->getVideoSegment(selectedTrackPos, clickedFrame);
+
+            // If we clicked on a video segment
+            if (clickedVideoSegment) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    // If shift is held, toggle selection of the clicked segment
+                    if (SDL_GetModState() & KMOD_SHIFT) {
+                        if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
+                            m_selectedVideoSegments.push_back(clickedVideoSegment);
+                        }
+                        else {
+                            m_selectedVideoSegments.erase(std::remove(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment), m_selectedVideoSegments.end());
+                        }
+                    }
+                    else {
+                        // If shift is not held and the clicked segment was not already selected
+                        if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
+                            m_selectedVideoSegments.clear();
+                            m_selectedAudioSegments.clear();
+                            m_selectedVideoSegments.push_back(clickedVideoSegment);
+                        }
+                        // Start holding/dragging logic
+                        m_isHolding = true;
+                        m_mouseHoldStartX = mouseButton.x;
+                        m_lastLegalTrackPos = selectedTrackPos;
+                        m_selectedMaxTrackPos = selectedTrackPos;
+                        m_selectedMinTrackPos = selectedTrackPos;
+                        m_lastLegalFrame = clickedFrame;
+                        m_lastLegalLeftmostFrame = clickedFrame;
+
+                        // Find the earliest/leftmost frame position of all selected segments
+                        // Also find the highest and lowest track order positions
+                        for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                            if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+                            int segmentTrackPos = m_timeline->getVideoTrackPos(m_selectedVideoSegments[i]->trackID);
+                            m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                            m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
+                        }
+                        for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                            if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+                            int segmentTrackPos = m_timeline->getVideoTrackPos(m_selectedAudioSegments[i]->trackID);
+                            m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                            m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
+                        }
+                    }
+                    break;
+                }
+                else if (event.button.button == SDL_BUTTON_RIGHT) {
+                    // If not already selected, unselect everything else and select this one
+                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
+                        m_selectedVideoSegments.clear();
+                        m_selectedAudioSegments.clear();
+                        m_selectedVideoSegments.push_back(clickedVideoSegment);
+                    }
+                }
             }
+        }
+        // Otherwise, if clicked in the audioTrack area
+        else if (mouseButton.y < rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + m_timeline->getAudioTrackCount()) * m_trackHeight)
+        {
+            int selectedTrackPos = (mouseButton.y - rect.y - m_topBarheight) / m_trackHeight - m_timeline->getVideoTrackCount();
+            AudioSegment* clickedAudioSegment = m_timeline->getAudioSegment(selectedTrackPos, clickedFrame);
+
+            // If we selected an audio segment
+            if (clickedAudioSegment) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    // If shift is held, toggle selection of the clicked segment
+                    if (SDL_GetModState() & KMOD_SHIFT) {
+                        if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
+                            m_selectedAudioSegments.push_back(clickedAudioSegment);
+                        }
+                        else {
+                            m_selectedAudioSegments.erase(std::remove(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment), m_selectedAudioSegments.end());
+                        }
+                    }
+                    else {
+                        // If shift is not held and the clicked segment was not already selected
+                        if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
+                            m_selectedVideoSegments.clear();
+                            m_selectedAudioSegments.clear();
+                            m_selectedAudioSegments.push_back(clickedAudioSegment);
+                        }
+                        m_isHolding = true;
+                        m_mouseHoldStartX = mouseButton.x;
+                        m_lastLegalTrackPos = selectedTrackPos;
+                        m_selectedMaxTrackPos = selectedTrackPos;
+                        m_selectedMinTrackPos = selectedTrackPos;
+                        m_lastLegalFrame = clickedFrame;
+                        m_lastLegalLeftmostFrame = clickedFrame;
+
+                        // Find the earliest/leftmost frame position of all selected segments
+                        for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
+                            if (m_selectedVideoSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedVideoSegments[i]->timelinePosition;
+                            int segmentTrackPos = m_timeline->getVideoTrackPos(m_selectedVideoSegments[i]->trackID);
+                            m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                            m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
+                        }
+                        for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
+                            if (m_selectedAudioSegments[i]->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = m_selectedAudioSegments[i]->timelinePosition;
+                            int segmentTrackPos = m_timeline->getVideoTrackPos(m_selectedAudioSegments[i]->trackID);
+                            m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
+                            m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
+                        }
+                    }
+                    break;
+                }
+                else if (event.button.button == SDL_BUTTON_RIGHT) {
+                    // If not already selected, unselect everything else and select this one
+                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
+                        m_selectedVideoSegments.clear();
+                        m_selectedAudioSegments.clear();
+                        m_selectedAudioSegments.push_back(clickedAudioSegment);
+                    }
+                }
+            }
+        }
+
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
+            if (m_timeline->isPlaying()) m_timeline->togglePlaying();
+            m_isMovingCurrentTime = true;
+            m_timeline->setCurrentTime(clickedFrame);
+            m_selectedVideoSegments.clear();
+            m_selectedAudioSegments.clear();
+        }
+        else if (event.button.button == SDL_BUTTON_RIGHT) {
+            // Show selected segments options
+            std::vector<ContextMenu::MenuItem> contextMenuOptions = {
+                { "Delete Selected Item(s)", [this]() { deleteSelectedSegments(); } }
+            };
+            ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
         }
         break;
     }
@@ -414,7 +409,7 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
         // Changing current time
         if (m_isMovingCurrentTime) {
             Uint32 hoveredFrame = (mousePoint.x <= m_trackStartXPos) ? 0 : (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
-            setCurrentTime(hoveredFrame);
+            m_timeline->setCurrentTime(hoveredFrame);
         }
 
         // Vertical movement:
@@ -428,18 +423,18 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
                 if (deltaTrackPos > 0) {
                     // Only audio
                     if (m_selectedVideoSegments.empty()) {
-                        if (m_selectedMaxTrackPos + deltaTrackPos >= m_audioTrackIDtoPosMap.size()) {
+                        if (m_selectedMaxTrackPos + deltaTrackPos >= m_timeline->getAudioTrackCount()) {
                             impossibleMove = true;
                         }
                     }
                     // Only video
                     else if (m_selectedAudioSegments.empty()) {
-                        if (m_selectedMaxTrackPos + deltaTrackPos >= m_videoTrackIDtoPosMap.size()) {
+                        if (m_selectedMaxTrackPos + deltaTrackPos >= m_timeline->getVideoTrackCount()) {
                             impossibleMove = true;
                         }
                     }
                     // Both
-                    else if (m_selectedMaxTrackPos + deltaTrackPos >= std::min(m_videoTrackIDtoPosMap.size(), m_audioTrackIDtoPosMap.size())) {
+                    else if (m_selectedMaxTrackPos + deltaTrackPos >= std::min(m_timeline->getVideoTrackCount(), m_timeline->getAudioTrackCount())) {
                         impossibleMove = true;
                     }
                 }
@@ -449,42 +444,8 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
 
                 // If it is possible to move all selected segments to different tracks, move them and check for collisions
                 if (!impossibleMove) {
-                    // Move all selected segments by deltaTrackPos (no collision checks yet)
-                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                        m_selectedVideoSegments[i]->trackID = m_videoTrackPosToIDMap[m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID] + deltaTrackPos];
-                    }
-                    for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                        m_selectedAudioSegments[i]->trackID = m_audioTrackPosToIDMap[m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID] + deltaTrackPos];
-                    }
-
-                    // For every moved segment, check for collisions
-                    bool illegalMove = false;
-                    for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                        // If it collides, undo every move
-                        if (isCollidingWithOtherSegments(m_selectedVideoSegments[i])) {
-                            illegalMove = true;
-                            break; // Exit loop
-                        }
-                    }
-                    if (!illegalMove) {
-                        for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                            // If it collides, undo every move
-                            if (isCollidingWithOtherSegments(m_selectedAudioSegments[i])) {
-                                illegalMove = true;
-                                break; // Exit loop
-                            }
-                        }
-                    }
-                    if (illegalMove) {
-                        // Move all selected segments back
-                        for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                            m_selectedVideoSegments[i]->trackID = m_videoTrackPosToIDMap[m_videoTrackIDtoPosMap[m_selectedVideoSegments[i]->trackID] - deltaTrackPos];
-                        }
-                        for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                            m_selectedAudioSegments[i]->trackID = m_audioTrackPosToIDMap[m_audioTrackIDtoPosMap[m_selectedAudioSegments[i]->trackID] - deltaTrackPos];
-                        }
-                    }
-                    else {
+                    // Move all selected segments up/down
+                    if (m_timeline->segmentsChangeTrack(&m_selectedVideoSegments, &m_selectedAudioSegments, deltaTrackPos)) {
                         // Update the lastLegalTrackPos and the selected Max and Min TrackPos
                         m_lastLegalTrackPos = mouseTrackPos;
                         m_selectedMaxTrackPos += deltaTrackPos;
@@ -523,42 +484,8 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
             }
             if (deltaFrames == 0) break; // No movement, so just stop here
 
-            // Move all selected segments by deltaFrames (no collision checks yet)
-            for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                m_selectedVideoSegments[i]->timelinePosition += deltaFrames;
-            }
-            for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                m_selectedAudioSegments[i]->timelinePosition += deltaFrames;
-            }
-
-            // For every moved segment, check for collisions
-            bool illegalMove = false;
-            for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                // If it collides, undo every move
-                if (isCollidingWithOtherSegments(m_selectedVideoSegments[i])) {
-                    illegalMove = true;
-                    break; // Exit loop
-                }
-            }
-            if (!illegalMove) {
-                for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                    // If it collides, undo every move
-                    if (isCollidingWithOtherSegments(m_selectedAudioSegments[i])) {
-                        illegalMove = true;
-                        break; // Exit loop
-                    }
-                }
-            }
-            if (illegalMove) {
-                // Move all selected segments back
-                for (int i = 0; i < m_selectedVideoSegments.size(); i++) {
-                    m_selectedVideoSegments[i]->timelinePosition -= deltaFrames;
-                }
-                for (int i = 0; i < m_selectedAudioSegments.size(); i++) {
-                    m_selectedAudioSegments[i]->timelinePosition -= deltaFrames;
-                }
-            }
-            else {
+            // Move all selected segments left/right
+            if (m_timeline->segmentsMoveFrames(&m_selectedVideoSegments, &m_selectedAudioSegments, deltaFrames)) {
                 // Update lastLegalFrame and -leftMostFrame
                 m_lastLegalFrame = currentFrame;
                 m_lastLegalLeftmostFrame += deltaFrames;
@@ -610,273 +537,10 @@ void TimeLineWindow::handleEvent(SDL_Event& event) {
     }
 }
 
-VideoSegment* TimeLineWindow::getVideoSegmentAtPos(int x, int y) {
-    if (x < rect.x + m_trackStartXPos) return nullptr;
-    if (y < rect.y + m_topBarheight) return nullptr;
-    int selectedTrackPos = static_cast<int>(m_videoTrackIDtoPosMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
-    if (selectedTrackPos >= m_videoTrackIDtoPosMap.size()) return nullptr;
-    int selectedTrack = m_videoTrackPosToIDMap[selectedTrackPos];
-
-    Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
-
-    // Iterate over video segments to find which one is active at currentTime
-    for (VideoSegment& segment : m_videoSegments) {
-        if (segment.trackID != selectedTrack) continue;
-        if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelinePosition + segment.timelineDuration) {
-            return &segment;
-        }
-    }
-    return nullptr;
-}
-
-AudioSegment* TimeLineWindow::getAudioSegmentAtPos(int x, int y) {
-    if (x < rect.x + m_trackStartXPos) return nullptr;
-    if (y < rect.y + m_topBarheight + m_videoTrackIDtoPosMap.size() * m_trackHeight) return nullptr;
-    int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackIDtoPosMap.size());
-    if (selectedTrackPos >= m_audioTrackIDtoPosMap.size()) return nullptr;
-    int selectedTrack = m_audioTrackPosToIDMap[selectedTrackPos];
-
-    Uint32 selectedFrame = (x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
-
-    // Iterate over video segments to find which one is active at currentTime
-    for (AudioSegment& segment : m_audioSegments) {
-        if (segment.trackID != selectedTrack) continue;
-        if (selectedFrame >= segment.timelinePosition && selectedFrame <= segment.timelinePosition + segment.timelineDuration) {
-            return &segment;
-        }
-    }
-    return nullptr;
-}
-
-bool TimeLineWindow::isCollidingWithOtherSegments(VideoSegment* videoSegment) {
-    // Iterate over video segments to find which one overlaps with the input segment
-    for (VideoSegment& segment : m_videoSegments) {
-        if (&segment == videoSegment) continue; // Skip self-collision check
-        if (videoSegment->overlapsWith(&segment)) return true;
-    }
-    return false;
-}
-
-bool TimeLineWindow::isCollidingWithOtherSegments(AudioSegment* audioSegment) {
-    // Iterate over video segments to find which one overlaps with the input segment
-    for (AudioSegment& segment : m_audioSegments) {
-        if (&segment == audioSegment) continue; // Skip self-collision check
-        if (audioSegment->overlapsWith(&segment)) return true;
-    }
-    return false;
-}
-
-void TimeLineWindow::addTrack(Track track, int videoOrAudio, bool above) {
-    if (videoOrAudio == 0 || videoOrAudio == 2) {
-        int newVideoTrackID = m_nextVideoTrackID++;
-
-        // Find the position to insert the new track
-        auto it = m_videoTrackIDtoPosMap.find(track.trackID);
-        if (it != m_videoTrackIDtoPosMap.end()) {
-            int pos = it->second; // Get position of the existing track
-            if (above) pos++;
-
-            // Insert the new track relative to existing one, shift positions of others
-            for (auto& entry : m_videoTrackIDtoPosMap) {
-                if (entry.second >= pos) {
-                    m_videoTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
-                    entry.second++; // Shift the position of tracks after the insertion point
-                    m_videoTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
-                }
-            }
-            m_videoTrackIDtoPosMap[newVideoTrackID] = pos;
-            m_videoTrackPosToIDMap[pos] = newVideoTrackID;
-        }
-        else {
-            // Insert at the end: new track gets the next available position
-            m_videoTrackIDtoPosMap[newVideoTrackID] = static_cast<int>(m_videoTrackIDtoPosMap.size());
-            m_videoTrackPosToIDMap[static_cast<int>(m_videoTrackIDtoPosMap.size())] = newVideoTrackID;
-        }
-    }
-    if (videoOrAudio == 1 || videoOrAudio == 2) {
-        int newAudioTrackID = m_nextAudioTrackID++;
-
-        // Find the position to insert the new track
-        auto it = m_audioTrackIDtoPosMap.find(track.trackID);
-        if (it != m_audioTrackIDtoPosMap.end()) {
-            int pos = it->second; // Get position of the existing track
-            if (!above) pos++;
-
-            // Insert the new track relative to existing one, shift positions of others
-            for (auto& entry : m_audioTrackIDtoPosMap) {
-                if (entry.second >= pos) {
-                    m_audioTrackPosToIDMap.erase(entry.second); // Remove old position entry in reverse map
-                    entry.second++; // Shift the position of tracks after the insertion point
-                    m_audioTrackPosToIDMap[entry.second] = entry.first; // Update reverse map with the new position
-                }
-            }
-            m_audioTrackIDtoPosMap[newAudioTrackID] = pos;
-            m_audioTrackPosToIDMap[pos] = newAudioTrackID;
-        }
-        else {
-            // Insert at the end: new track gets the next available position
-            m_audioTrackIDtoPosMap[newAudioTrackID] = static_cast<int>(m_audioTrackIDtoPosMap.size());
-            m_audioTrackPosToIDMap[static_cast<int>(m_audioTrackIDtoPosMap.size())] = newAudioTrackID;
-        }
-    }
-}
-
-void TimeLineWindow::deleteTrack(Track track) {
-    if (track.trackType == VIDEO) {
-        if (m_videoTrackIDtoPosMap.size() <= 1) return; // Cannot remove the track if it is the only video track
-
-        // Remove video segments 
-        m_videoSegments.erase(
-            std::remove_if(m_videoSegments.begin(), m_videoSegments.end(),
-                [track](const VideoSegment& item) {
-                    return item.trackID == track.trackID;
-                }),
-            m_videoSegments.end()
-        );
-
-        // Remove the track from the maps
-        int trackPos = m_videoTrackIDtoPosMap[track.trackID];
-        if (!m_videoTrackIDtoPosMap.erase(track.trackID)) {
-            std::cout << "Track ID " << track.trackID << " not found.\n";
-        }
-        if (!m_videoTrackPosToIDMap.erase(trackPos)) {
-            std::cout << "Track Pos " << trackPos << " not found.\n";
-        }
-
-        // Shift track positions down
-        std::unordered_map<int, int> updatedTrackPosToIDmap;
-        for (const auto& [pos, id] : m_videoTrackPosToIDMap) {
-            if (pos > trackPos) {
-                updatedTrackPosToIDmap[pos - 1] = id;
-                m_videoTrackIDtoPosMap[id] = pos - 1;
-            }
-            else {
-                updatedTrackPosToIDmap[pos] = id;
-            }
-        }
-        m_videoTrackPosToIDMap = std::move(updatedTrackPosToIDmap);
-    }
-    else if (track.trackType == AUDIO) {
-        if (m_audioTrackIDtoPosMap.size() <= 1) return; // Cannot remove the track if it is the only audio track
-
-        // Remove audio segments 
-        m_audioSegments.erase(
-            std::remove_if(m_audioSegments.begin(), m_audioSegments.end(),
-                [track](const AudioSegment& item) {
-                    return item.trackID == track.trackID;
-                }),
-            m_audioSegments.end()
-        );
-
-        // Remove the track from the maps
-        int trackPos = m_audioTrackIDtoPosMap[track.trackID];
-        if (!m_audioTrackIDtoPosMap.erase(track.trackID)) {
-            std::cout << "Track ID " << track.trackID << " not found.\n";
-        }
-        if (!m_audioTrackPosToIDMap.erase(trackPos)) {
-            std::cout << "Track Pos " << trackPos << " not found.\n";
-        }
-
-        // Shift track positions down
-        std::unordered_map<int, int> updatedTrackPosToIDmap;
-        for (const auto& [pos, id] : m_audioTrackPosToIDMap) {
-            if (pos > trackPos) {
-                updatedTrackPosToIDmap[pos - 1] = id;
-                m_audioTrackIDtoPosMap[id] = pos - 1;
-            }
-            else {
-                updatedTrackPosToIDmap[pos] = id;
-            }
-        }
-        m_audioTrackPosToIDMap = std::move(updatedTrackPosToIDmap);
-    }
-}
-
 void TimeLineWindow::deleteSelectedSegments() {
-    if (!m_selectedVideoSegments.empty()) {
-        // Predicate to check if a VideoSegment exists in m_selectedVideoSegments
-        auto isSelected = [this](const VideoSegment& segment) {
-            return std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), &segment) != m_selectedVideoSegments.end();
-            };
-
-        // Remove all selected segments from m_videoSegments
-        m_videoSegments.erase(
-            std::remove_if(m_videoSegments.begin(), m_videoSegments.end(), isSelected),
-            m_videoSegments.end()
-        );
-        m_selectedVideoSegments.clear();
-    }
-    if (!m_selectedAudioSegments.empty()) {
-        // Predicate to check if an AudioSegment exists in m_selectedAudioSegments
-        auto isSelected = [this](const AudioSegment& segment) {
-            return std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), &segment) != m_selectedAudioSegments.end();
-            };
-
-        // Remove all selected segments from m_videoSegments
-        m_audioSegments.erase(
-            std::remove_if(m_audioSegments.begin(), m_audioSegments.end(), isSelected),
-            m_audioSegments.end()
-        );
-        m_selectedAudioSegments.clear();
-    }
-}
-
-// TODO: return only the video segment with the highest trackID at this time
-VideoSegment* TimeLineWindow::getCurrentVideoSegment() {
-    Uint32 currentTime = getCurrentTime();
-    VideoSegment* currentVideoSegment = nullptr;
-
-    // Iterate over video segments
-    for (VideoSegment& segment : m_videoSegments) {
-        // Check if active at the current time
-        if (currentTime >= segment.timelinePosition &&
-            currentTime < segment.timelinePosition + segment.timelineDuration) {
-            // Check if the found segment is higher on the track ordering
-            if (!currentVideoSegment || (m_videoTrackPosToIDMap[segment.trackID] > m_videoTrackPosToIDMap[currentVideoSegment->trackID])) {
-                currentVideoSegment = &segment; // Set this segment to be returned
-            }
-        }
-    }
-    return currentVideoSegment;
-}
-
-// TODO: merge audio if multiple tracks have a audioSegment to play at this time
-AudioSegment* TimeLineWindow::getCurrentAudioSegment() {
-    Uint32 currentTime = getCurrentTime();
-
-    for (AudioSegment& segment : m_audioSegments) {
-        if (currentTime >= segment.timelinePosition &&
-            currentTime < segment.timelinePosition + segment.timelineDuration) {
-            return &segment;  // Return the active audio segment
-        }
-    }
-    return nullptr;  // No segment found at the current time
-}
-
-bool TimeLineWindow::isPlaying() {
-    return m_playing;
-}
-
-int TimeLineWindow::getFPS() {
-    return m_fps;
-}
-
-void TimeLineWindow::setFPS(int fps) {
-    m_fps = fps;
-}
-
-Uint32 TimeLineWindow::getCurrentTime() {
-    if (m_playing) {
-        // If playing, calculate the current time based on how long it's been playing
-        Uint32 now = SDL_GetTicks();
-        m_currentTime = static_cast<Uint32>((now - m_startTime) / 1000.0 * m_fps);
-    }
-    return m_currentTime;
-}
-
-void TimeLineWindow::setCurrentTime(Uint32 time) {
-    m_currentTime = time;
-    m_startPlayTime = time;
+    m_timeline->deleteSegments(&m_selectedVideoSegments, &m_selectedAudioSegments);
+    m_selectedVideoSegments.clear();
+    m_selectedAudioSegments.clear();
 }
 
 Window* TimeLineWindow::findTypeImpl(const std::type_info& type) {
@@ -890,18 +554,18 @@ Track TimeLineWindow::getTrackID(SDL_Point mousePoint) {
     Track track;
     track.trackID = -1;
     // Iterate over video and audio tracks to find the trackID
-    for (int i = 0; i < m_videoTrackIDtoPosMap.size(); i++) {
+    for (int i = 0; i < m_timeline->getVideoTrackCount(); i++) {
         if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
-            track.trackID = m_videoTrackPosToIDMap[static_cast<int>(m_videoTrackIDtoPosMap.size()) - 1 - i];
+            track.trackID = m_timeline->getVideoTrackID(m_timeline->getVideoTrackCount() - 1 - i);
             track.trackType = VIDEO;
             return track;
         }
     }
-    for (int i = 0; i < m_audioTrackIDtoPosMap.size(); i++) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (static_cast<int>(m_videoTrackIDtoPosMap.size()) + i) && 
-            mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (static_cast<int>(m_videoTrackIDtoPosMap.size()) + i + 1)) 
+    for (int i = 0; i < m_timeline->getAudioTrackCount(); i++) {
+        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_timeline->getVideoTrackCount() + i) &&
+            mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_timeline->getAudioTrackCount() + i + 1))
         {
-            track.trackID = m_audioTrackPosToIDMap[i];
+            track.trackID = m_timeline->getAudioTrackID(i);
             track.trackType = AUDIO;
             return track;
         }
@@ -912,11 +576,11 @@ Track TimeLineWindow::getTrackID(SDL_Point mousePoint) {
 int TimeLineWindow::getTrackPos(int y) {
     if (y < rect.y + m_topBarheight) return -1;
 
-    int selectedTrackPos = static_cast<int>(m_videoTrackIDtoPosMap.size() - 1) - ((y - rect.y - m_topBarheight) / m_trackHeight);
-    if (selectedTrackPos < m_videoTrackIDtoPosMap.size()) return selectedTrackPos;
+    int selectedTrackPos = m_timeline->getVideoTrackCount() - 1 - ((y - rect.y - m_topBarheight) / m_trackHeight);
+    if (selectedTrackPos < m_timeline->getVideoTrackCount()) return selectedTrackPos;
 
-    selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - static_cast<int>(m_videoTrackIDtoPosMap.size());
-    if (selectedTrackPos < m_audioTrackIDtoPosMap.size()) return selectedTrackPos;
+    selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - m_timeline->getAudioTrackCount();
+    if (selectedTrackPos < m_timeline->getAudioTrackCount()) return selectedTrackPos;
     return -1;
 }
 
@@ -932,86 +596,30 @@ bool TimeLineWindow::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
     Uint32 selectedFrame = (mousePoint.x - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
 
     Track track = getTrackID(mousePoint);
-    int videoTrackID = track.trackID;
-    int audioTrackID = track.trackID;
 
-    if (videoTrackID < 0) {
-        return false; // Not in a legitimate track (above first or below last track)
-    }
-    if (!data->videoData && track.trackType == VIDEO) return false; // Cannot drop audio only files in video tracks
-    if (!data->audioData && track.trackType == AUDIO) return false; // Cannot drop video only files in audio tracks
-    if (data->videoData && data->audioData) {
-        int trackPos = 0;
-        if (track.trackType == VIDEO) {
-            trackPos = m_videoTrackIDtoPosMap[videoTrackID];
-            audioTrackID = m_audioTrackPosToIDMap[trackPos];
-        }
-        else if (track.trackType == AUDIO) {
-            trackPos = m_audioTrackIDtoPosMap[audioTrackID];
-            videoTrackID = m_videoTrackPosToIDMap[trackPos];
-        }
+    SegmentPointer segmentPointer = m_timeline->addAssetSegments(p_renderer, data, selectedFrame, track);
 
-        if (trackPos >= std::min(m_videoTrackIDtoPosMap.size(), m_audioTrackIDtoPosMap.size())) return false; // Cannot drop AV files in if the target trackPos doesn't exist for both video and audio
-    }
-
-    VideoSegment videoSegment;
-    AudioSegment audioSegment;
-
-    // In case the asset has video
-    if (data->videoData) {
-        // Create and add a new videoSegment
-        videoSegment = {
-            .videoData = data->videoData,
-            .sourceStartTime = 0,
-            .duration = data->videoData->getVideoDurationInFrames(),
-            .timelinePosition = selectedFrame,
-            .timelineDuration = data->videoData->getVideoDurationInFrames(m_fps),
-            .fps = data->videoData->getFPS(),
-            .trackID = videoTrackID
-        };
-        videoSegment.firstFrame = videoSegment.videoData->getFrameTexture(p_renderer, 0);
-        videoSegment.lastFrame  = videoSegment.videoData->getFrameTexture(p_renderer, videoSegment.duration - 1);
-
-        // Cannot drop here, because it would overlap with another segment
-        if (isCollidingWithOtherSegments(&videoSegment)) return false;
-    }
-    // In case the asset has audio
-    if (data->audioData) {
-        // Create and add a new audioSegment
-        audioSegment = {
-            .audioData = data->audioData,
-            .sourceStartTime = 0,
-            .duration = data->audioData->getAudioDurationInFrames(),
-            .timelinePosition = selectedFrame,
-            .timelineDuration = data->audioData->getAudioDurationInFrames(m_fps),
-            .trackID = audioTrackID
-        };
-
-        // Cannot drop here, because it would overlap with another segment
-        if (isCollidingWithOtherSegments(&audioSegment)) return false;
-    }
+    if (!segmentPointer.videoSegment && !segmentPointer.audioSegment) return false; // if both are nullptr, it failed
 
     // Unselect any selected segments
     m_selectedVideoSegments.clear();
     m_selectedAudioSegments.clear();
 
-    // If we reached here, then the new video segment and/or audio segment can be added
-    // Also immediately select the new assets (so we can immediately move them until we release the mouse)
+    // Select the new assets (so we can immediately move them until we release the mouse)
     if (data->videoData) {
-        m_videoSegments.push_back(videoSegment);
-        m_selectedVideoSegments.push_back(&m_videoSegments.back());
+        m_selectedVideoSegments.push_back(segmentPointer.videoSegment);
     }
     if (data->audioData) {
-        m_audioSegments.push_back(audioSegment);
-        m_selectedAudioSegments.push_back(&m_audioSegments.back());
+        m_selectedAudioSegments.push_back(segmentPointer.audioSegment);
     }
+
+    tempAddedVid = true;
 
     // Start dragging logic
     m_isHolding = true;
     m_isDragging = true;
     int trackPos = 0;
-    if (data->videoData) trackPos = m_videoTrackIDtoPosMap[videoSegment.trackID];
-    else if (data->audioData) trackPos = m_audioTrackIDtoPosMap[videoSegment.trackID];
+    trackPos = getTrackPos(mousePoint.y);
     m_lastLegalTrackPos = trackPos;
     m_selectedMaxTrackPos = trackPos;
     m_selectedMinTrackPos = trackPos;

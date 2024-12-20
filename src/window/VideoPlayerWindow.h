@@ -2,7 +2,7 @@
 #include <SDL.h>
 #include <iostream>
 #include "Window.h"
-#include "TimelineWindow.h"
+#include "Timeline.h"
 #include "EventManager.h"
 #include "VideoData.h"
 
@@ -52,7 +52,7 @@ private:
 private:
     SDL_Texture* m_videoTexture = nullptr; // Texture for the video frame
     VideoData* m_videoData = nullptr; // Holds pointers to all VideoData for ffmpeg to be able to read frames
-    TimeLineWindow* m_timeline = nullptr; // Pointer towards the timeline
+    Timeline* m_timeline = nullptr; // Pointer towards the timeline
     SDL_Rect m_videoRect; // Rectangle to display the video in
     int m_WtoH_ratioW = 16; // Width to height ratio: width (default 1920:1080 = 16:9)
     int m_WtoH_ratioH = 9; // Width to height ratio: height (default 1920:1080 = 16:9)

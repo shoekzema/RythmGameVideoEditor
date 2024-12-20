@@ -1,4 +1,9 @@
 #pragma once
+#include <SDL.h>
+#include <iostream>
+#include <unordered_map>
+#include <vector>
+#include "VideoData.h"
 
 // Segment in the timeline with a pointer to the corresponding video data and data on what of that video is to be played.
 struct VideoSegment {
@@ -39,6 +44,11 @@ struct AudioSegment {
     }
 };
 
+struct SegmentPointer {
+    VideoSegment* videoSegment = nullptr;
+    AudioSegment* audioSegment = nullptr;
+};
+
 enum TrackType {
     VIDEO = 0,
     AUDIO = 1
@@ -47,4 +57,85 @@ enum TrackType {
 struct Track {
     int trackID;
     TrackType trackType;
+};
+
+/**
+ * @class Timeline
+ * @brief The editors timeline. Contains everything that will be played at what time, in what order and for how long.
+ */
+class Timeline {
+public:
+    Timeline();
+    ~Timeline();
+
+    // Get / Toggle the timeline's playing status
+    bool isPlaying(); void togglePlaying();
+
+    // Get / Set the timeline's target frames per second
+    int getFPS(); void setFPS(int fps);
+
+    // Get / Set the current time in the timeline (as a frameIndex)
+    Uint32 getCurrentTime(); void setCurrentTime(Uint32 time);
+
+    // Get the amount of video / audio tracks
+    int getVideoTrackCount(); int getAudioTrackCount();
+
+    // Get the video / audio trackID of the track at position trackPos
+    int getVideoTrackID(int trackPos); int getAudioTrackID(int trackPos);
+
+    // Get the video / audio trackPos of a given trackID
+    int getVideoTrackPos(int trackID); int getAudioTrackPos(int trackID);
+
+    // Get all video / audio segments
+    std::vector<VideoSegment>* getAllVideoSegments(); std::vector<AudioSegment>* getAllAudioSegments();
+
+    // Get the video / audio segment that should currently be playing
+    VideoSegment* getCurrentVideoSegment(); AudioSegment* getCurrentAudioSegment();
+
+    // Get the video / audio segment from a track at a given position (nullptr if none)
+    VideoSegment* getVideoSegment(int trackPos, Uint32 frame); AudioSegment* getAudioSegment(int trackPos, Uint32 frame);
+
+    // Add a video and/or audio segment to the timeline at a track at frame, returns a pointer to the added segments
+    SegmentPointer addAssetSegments(SDL_Renderer* renderer, AssetData* data, Uint32 frame, Track track);
+
+    // Move all given video and audio segments by deltaTrackPos (up-down, track position order)
+    bool segmentsChangeTrack(std::vector<VideoSegment*>* videoSegments, std::vector<AudioSegment*>* audioSegments, int deltaTrackPos);
+
+    // Move all given video and audio segments by deltaFrames (left-right, timeline position)
+    bool segmentsMoveFrames(std::vector<VideoSegment*>* videoSegments, std::vector<AudioSegment*>* audioSegments, int deltaFrames);
+
+    // Delete the given video and audio segments from the timeline
+    void deleteSegments(std::vector<VideoSegment*>* videoSegments, std::vector<AudioSegment*>* audioSegments);
+
+    /**
+     * @brief Add a new track to the timeline.
+     * @param trackID The track from which we relatively add a new track.
+     * @param trackType The type of track of trackID.
+     * @param above Where to put the new track relative to the selected Track.
+     * @param videoOrAudio What type of track to add. 0 for video, 1 for audio, 2 for both (AV).
+     */
+    void addTrack(Track track, int videoOrAudio, bool above = true);
+
+    // Delete a track from the timeline
+    void deleteTrack(Track track);
+private:
+    // Check if a video segment is colliding with another
+    bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
+
+    // Check if an audio segment is colliding with another
+    bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
+private:
+    bool m_playing = false;
+    std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
+    std::vector<AudioSegment> m_audioSegments; // List of all AudioSegments in the timeline.
+    std::unordered_map<int, int> m_videoTrackIDtoPosMap; // Maps videoTrackID to its position order
+    std::unordered_map<int, int> m_audioTrackIDtoPosMap; // Maps audioTrackID to its position order
+    std::unordered_map<int, int> m_videoTrackPosToIDMap; // Maps position order to videoTrackID
+    std::unordered_map<int, int> m_audioTrackPosToIDMap; // Maps position order audioTrackID
+    int m_nextVideoTrackID; // Keeps track of the next available videoTrackID
+    int m_nextAudioTrackID; // Keeps track of the next available audioTrackID
+    Uint32 m_currentTime = 0;     // The current time (and position) of the timeline (in frames)
+    Uint32 m_startPlayTime = 0; // The time in the timeline where playing starts from (in frames)
+    Uint32 m_startTime = 0; // Absolute start time of playback (in milliseconds)
+    int m_fps = 60; // Target frames per second to render in.
 };
