@@ -13,7 +13,9 @@ project ("RythmGameVideoEditor")
 
 
 # Include directories for headers
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src 
+                    ${CMAKE_SOURCE_DIR}/src/core
+                    ${CMAKE_SOURCE_DIR}/src/window)
 
 # Add the source files
 set(SOURCES
@@ -33,7 +35,7 @@ add_executable (RythmGameVideoEditor  "src/main.cpp"
     "src/window/VideoPlayerWindow.h" "src/window/VideoPlayerWindow.cpp" 
     "src/window/TimeLineWindow.h" "src/window/TimelineWindow.cpp" 
     "src/util.h" "src/util.cpp" 
-    "src/VideoData.h" "src/window/WindowIncludes.h" "src/ContextMenu.h")
+    "src/core/VideoData.h" "src/window/WindowIncludes.h" "src/window/ContextMenu.h")
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)

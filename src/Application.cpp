@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Application.h"
 #include "util.h"
-#include "window/WindowIncludes.h"
+#include "WindowIncludes.h"
 #include "ContextMenu.h"
 
 Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {

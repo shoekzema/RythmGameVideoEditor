@@ -1,7 +1,7 @@
 #pragma once
 #include <SDL.h>
 #include <SDL_ttf.h>
-#include "window/Window.h"
+#include "Window.h"
 
 class Application {
 public:
