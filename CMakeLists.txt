@@ -33,9 +33,9 @@ add_executable (RythmGameVideoEditor  "src/main.cpp"
     "src/window/WindowVSplit.h" "src/window/WindowVSplit.cpp" 
     "src/window/AssetsListWindow.h" "src/window/AssetsListWindow.cpp" 
     "src/window/VideoPlayerWindow.h" "src/window/VideoPlayerWindow.cpp" 
-    "src/window/TimeLineWindow.h" "src/window/TimelineWindow.cpp" 
+    "src/window/TimelineWindow.h" "src/window/TimelineWindow.cpp" 
     "src/util.h" "src/util.cpp" 
-    "src/core/VideoData.h" "src/window/WindowIncludes.h" "src/window/ContextMenu.h")
+    "src/core/VideoData.h" "src/window/WindowIncludes.h" "src/window/ContextMenu.h" "src/core/Timeline.h" "src/core/Timeline.cpp")
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)

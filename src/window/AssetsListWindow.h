@@ -14,13 +14,13 @@ struct Asset {
 };
 
 /**
- * @class AssetsList
+ * @class AssetsListWindow
  * @brief Window segment containing the list of assets loaded in the current project.
  */
-class AssetsList : public Window {
+class AssetsListWindow : public Window {
 public:
-    AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
-    ~AssetsList();
+    AssetsListWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
+    ~AssetsListWindow();
 
     void render() override;
     void update(int x, int y, int w, int h) override;

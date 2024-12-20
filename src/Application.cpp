@@ -9,11 +9,11 @@ Application::Application(int width, int height) : m_screenWidth(width), m_screen
         WindowHSplit* root = new WindowHSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager);
             WindowVSplit* top = new WindowVSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
             root->setTopWindow(top);
-                Window* assetList   = new AssetsList(   0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
-                Window* videoPlayer = new VideoPlayer(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                Window* assetList   = new AssetsListWindow(   0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                Window* videoPlayer = new VideoPlayerWindow(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
                 top->setLeftWindow(assetList);
                 top->setRightWindow(videoPlayer);
-            Window* timeLine = new Timeline(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
+            Window* timeLine = new TimeLineWindow(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
             root->setBottomWindow(timeLine);
 
         m_rootWindow = root;
@@ -99,7 +99,7 @@ void Application::handleEvents() {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
                 // Check if pressed inside an AssetList window
-                AssetsList* assetList = m_rootWindow->findType<AssetsList>();
+                AssetsListWindow* assetList = m_rootWindow->findType<AssetsListWindow>();
                 if (SDL_PointInRect(&mouseButton, &assetList->rect)) {
                     m_draggedAsset = assetList->getAssetFromAssetList(mouseButton.x, mouseButton.y);
                     m_isDragging = true;
@@ -111,8 +111,8 @@ void Application::handleEvents() {
             if (m_isDragging && m_draggedAsset) {
                 SDL_Point mouseButton = { event.button.x, event.button.y };
 
-                // Check if released inside a Timeline window
-                Timeline* timeline = m_rootWindow->findType<Timeline>();
+                // Check if released inside a TimeLineWindow window
+                TimeLineWindow* timeline = m_rootWindow->findType<TimeLineWindow>();
                 if (SDL_PointInRect(&mouseButton, &timeline->rect)) {
                     // Add the new segments to the timeline
                     if (timeline->addAssetSegments(m_draggedAsset, mouseButton.x, mouseButton.y)) {

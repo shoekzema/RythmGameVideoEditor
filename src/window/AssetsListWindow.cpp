@@ -5,7 +5,7 @@
 #include "AssetsListWindow.h"
 #include "util.h"
 
-AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+AssetsListWindow::AssetsListWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     m_altColor = {
@@ -16,9 +16,9 @@ AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, Event
     };
 }
 
-AssetsList::~AssetsList() {}
+AssetsListWindow::~AssetsListWindow() {}
 
-void AssetsList::render() {
+void AssetsListWindow::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
@@ -78,7 +78,7 @@ void AssetsList::render() {
     }
 }
 
-void AssetsList::update(int x, int y, int w, int h) {
+void AssetsListWindow::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 
     // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the window size, it will scroll up if possible)
@@ -89,7 +89,7 @@ void AssetsList::update(int x, int y, int w, int h) {
     }
 }
 
-void AssetsList::handleEvent(SDL_Event& event) {
+void AssetsListWindow::handleEvent(SDL_Event& event) {
     static bool mouseInThisWindow = false;
 
     switch (event.type) {
@@ -124,14 +124,14 @@ void AssetsList::handleEvent(SDL_Event& event) {
     }
 }
 
-Window* AssetsList::findTypeImpl(const std::type_info& type) {
-    if (type == typeid(AssetsList)) {
+Window* AssetsListWindow::findTypeImpl(const std::type_info& type) {
+    if (type == typeid(AssetsListWindow)) {
         return this;
     }
     return nullptr;
 }
 
-AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
+AssetData* AssetsListWindow::getAssetFromAssetList(int mouseX, int mouseY) {
     // If no assets loaded in, return null
     if (m_assets.empty()) return nullptr;
 
@@ -144,7 +144,7 @@ AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
     return nullptr;
 }
 
-bool AssetsList::loadFile(const char* filepath) {
+bool AssetsListWindow::loadFile(const char* filepath) {
     Asset newAsset;
 
     // Open the file and reads its header, populating formatContext.
@@ -355,7 +355,7 @@ bool AssetsList::loadFile(const char* filepath) {
     return true; // Successfully loaded the video/audio file
 }
 
-SDL_Texture* AssetsList::getThumbnail(VideoData* videoData) {
+SDL_Texture* AssetsListWindow::getThumbnail(VideoData* videoData) {
 #ifdef _WIN32
     // If on a windows machine and m_useWindowsThumbnail is true, get the same thumbnail as windows shows
     if (m_useWindowsThumbnail) {
@@ -372,7 +372,7 @@ SDL_Texture* AssetsList::getThumbnail(VideoData* videoData) {
 #include <Shobjidl.h> // Windows shell (explorer) library
 #include <comdef.h> // For COM error handling
 
-SDL_Texture* AssetsList::getWindowsThumbnail(const wchar_t* wfilepath) {
+SDL_Texture* AssetsListWindow::getWindowsThumbnail(const wchar_t* wfilepath) {
     HRESULT hr;
     IShellItemImageFactory* imageFactory = nullptr;
     HBITMAP hBitmap = nullptr;

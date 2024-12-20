@@ -2,7 +2,7 @@
 #include <iostream>
 #include "VideoPlayerWindow.h"
 
-VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+VideoPlayerWindow::VideoPlayerWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     setVideoRect(&rect);
@@ -29,12 +29,12 @@ VideoPlayer::VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, Eve
     m_audioBuffer = static_cast<uint8_t*>(av_malloc(m_audioBufferSize));
 }
 
-VideoPlayer::~VideoPlayer() {
+VideoPlayerWindow::~VideoPlayerWindow() {
     SDL_CloseAudioDevice(m_audioDevice);
     av_free(m_audioBuffer);
 }
 
-void VideoPlayer::render() {
+void VideoPlayerWindow::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
@@ -51,18 +51,18 @@ void VideoPlayer::render() {
             rootWindow = rootWindow->parent;
         }
         // Find the timeline and save it
-        m_timeline = rootWindow->findType<Timeline>();
+        m_timeline = rootWindow->findType<TimeLineWindow>();
     }
 }
 
-void VideoPlayer::handleEvent(SDL_Event& event) { }
+void VideoPlayerWindow::handleEvent(SDL_Event& event) { }
 
-void VideoPlayer::update(int x, int y, int w, int h) {
+void VideoPlayerWindow::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
     setVideoRect(&rect);
 }
 
-void VideoPlayer::setVideoRect(SDL_Rect* rect) {
+void VideoPlayerWindow::setVideoRect(SDL_Rect* rect) {
     m_videoRect = *rect;
 
     // If the window's height to width ratio is longer than the video, reshape the height and ypos
@@ -77,7 +77,7 @@ void VideoPlayer::setVideoRect(SDL_Rect* rect) {
     }
 }
 
-void VideoPlayer::renderTimeline() {
+void VideoPlayerWindow::renderTimeline() {
     // Get the current video segment from the timeline
     VideoSegment* currentVideoSegment = m_timeline->getCurrentVideoSegment();
 
@@ -93,7 +93,7 @@ void VideoPlayer::renderTimeline() {
     }
 }
 
-void VideoPlayer::playAudio() {
+void VideoPlayerWindow::playAudio() {
     // Get the current audio segment (if applicable)
     AudioSegment* currentAudioSegment = m_timeline->getCurrentAudioSegment();
     if (!currentAudioSegment) {
@@ -105,7 +105,7 @@ void VideoPlayer::playAudio() {
     playAudioSegment(currentAudioSegment);
 }
 
-void VideoPlayer::pausePlayback() {
+void VideoPlayerWindow::pausePlayback() {
     // Stop audio
     SDL_PauseAudioDevice(m_audioDevice, 1);
 
@@ -114,7 +114,7 @@ void VideoPlayer::pausePlayback() {
     m_lastAudioSegment = nullptr;
 }
 
-void VideoPlayer::renderFrame(VideoSegment* videoSegment) {
+void VideoPlayerWindow::renderFrame(VideoSegment* videoSegment) {
     Uint32 currentVideoSegmentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
 
     if (currentVideoSegmentFrame != m_lastVideoSegmentFrame) {
@@ -130,7 +130,7 @@ void VideoPlayer::renderFrame(VideoSegment* videoSegment) {
     renderFrameToScreen(videoSegment);
 }
 
-void VideoPlayer::renderFrameToScreen(VideoSegment* videoSegment) {
+void VideoPlayerWindow::renderFrameToScreen(VideoSegment* videoSegment) {
     if (!videoSegment->videoData->rgbFrame) return;
 
     static int s_lastFrameWidth = 0, s_lastFrameHeight = 0;
@@ -184,7 +184,7 @@ void VideoPlayer::renderFrameToScreen(VideoSegment* videoSegment) {
     SDL_RenderCopy(p_renderer, m_videoTexture, nullptr, &destRect);
 }
 
-bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
+bool VideoPlayerWindow::getVideoFrame(VideoSegment* videoSegment) {
     if (!videoSegment) {
         std::cerr << "Invalid video segment" << std::endl;
         return false;
@@ -220,7 +220,7 @@ bool VideoPlayer::getVideoFrame(VideoSegment* videoSegment) {
     return decodeAndProcessFrame(videoSegment, currentFrame);
 }
 
-bool VideoPlayer::decodeAndProcessFrame(VideoSegment* videoSegment, Uint32 currentFrame) {
+bool VideoPlayerWindow::decodeAndProcessFrame(VideoSegment* videoSegment, Uint32 currentFrame) {
     AVPacket packet;
     while (av_read_frame(videoSegment->videoData->formatContext, &packet) >= 0) {
         if (packet.stream_index == videoSegment->videoData->streamIndex) {
@@ -243,7 +243,7 @@ bool VideoPlayer::decodeAndProcessFrame(VideoSegment* videoSegment, Uint32 curre
     return false; // No frame found or error occurred
 }
 
-bool VideoPlayer::processFrame(VideoSegment* videoSegment, Uint32 currentFrame) {
+bool VideoPlayerWindow::processFrame(VideoSegment* videoSegment, Uint32 currentFrame) {
     auto stream = videoSegment->videoData->formatContext->streams[videoSegment->videoData->streamIndex];
 
     // Calculate the frame's presentation timestamp in frames (frame index)
@@ -291,7 +291,7 @@ bool VideoPlayer::processFrame(VideoSegment* videoSegment, Uint32 currentFrame) 
     return true;
 }
 
-void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
+void VideoPlayerWindow::playAudioSegment(AudioSegment* audioSegment) {
     if (!audioSegment) {
         std::cerr << "Invalid audio segment" << std::endl;
         return;
@@ -393,8 +393,8 @@ void VideoPlayer::playAudioSegment(AudioSegment* audioSegment) {
     return;
 }
 
-Window* VideoPlayer::findTypeImpl(const std::type_info& type) {
-    if (type == typeid(VideoPlayer)) {
+Window* VideoPlayerWindow::findTypeImpl(const std::type_info& type) {
+    if (type == typeid(VideoPlayerWindow)) {
         return this;
     }
     return nullptr;

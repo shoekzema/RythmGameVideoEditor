@@ -7,13 +7,13 @@
 #include "VideoData.h"
 
 /**
- * @class VideoPlayer
+ * @class VideoPlayerWindow
  * @brief Window segment that can render videos.
  */
-class VideoPlayer : public Window {
+class VideoPlayerWindow : public Window {
 public:
-    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
-    ~VideoPlayer();
+    VideoPlayerWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
+    ~VideoPlayerWindow();
 
     void render() override;
     void update(int x, int y, int w, int h) override;
@@ -52,7 +52,7 @@ private:
 private:
     SDL_Texture* m_videoTexture = nullptr; // Texture for the video frame
     VideoData* m_videoData = nullptr; // Holds pointers to all VideoData for ffmpeg to be able to read frames
-    Timeline* m_timeline = nullptr; // Pointer towards the timeline
+    TimeLineWindow* m_timeline = nullptr; // Pointer towards the timeline
     SDL_Rect m_videoRect; // Rectangle to display the video in
     int m_WtoH_ratioW = 16; // Width to height ratio: width (default 1920:1080 = 16:9)
     int m_WtoH_ratioH = 9; // Width to height ratio: height (default 1920:1080 = 16:9)
