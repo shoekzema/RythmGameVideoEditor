@@ -8,10 +8,10 @@
 #include "util.h"
 #include "ContextMenu.h"
 
-TimeLineWindow::TimeLineWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+TimeLineWindow::TimeLineWindow(Timeline* timeline, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
-    m_timeline = new Timeline();
+    m_timeline = timeline;
 }
 
 TimeLineWindow::~TimeLineWindow() {

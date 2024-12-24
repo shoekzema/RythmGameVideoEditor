@@ -6,14 +6,17 @@
 
 Application::Application(int width, int height) : m_screenWidth(width), m_screenHeight(height) {
     if (init()) {
+        m_assetsList = new AssetsList(m_renderer);
+        m_timeline = new Timeline();
+
         WindowHSplit* root = new WindowHSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager);
             WindowVSplit* top = new WindowVSplit(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
             root->setTopWindow(top);
-                Window* assetList   = new AssetsListWindow(   0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
-                Window* videoPlayer = new VideoPlayerWindow(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                Window* assetList   = new AssetsListWindow(m_assetsList, 0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
+                Window* videoPlayer = new VideoPlayerWindow(m_timeline,  0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, top);
                 top->setLeftWindow(assetList);
                 top->setRightWindow(videoPlayer);
-            Window* timeLine = new TimeLineWindow(0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
+            Window* timeLine = new TimeLineWindow(m_timeline, 0, 0, m_screenWidth, m_screenHeight, m_renderer, &m_eventManager, root);
             root->setBottomWindow(timeLine);
 
         m_rootWindow = root;

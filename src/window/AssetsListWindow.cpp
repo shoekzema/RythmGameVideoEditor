@@ -4,10 +4,10 @@
 #include "AssetsListWindow.h"
 #include "util.h"
 
-AssetsListWindow::AssetsListWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+AssetsListWindow::AssetsListWindow(AssetsList* assetsList, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
-    m_assetsList = new AssetsList(renderer);
+    m_assetsList = assetsList;
 
     m_altColor = {
         static_cast<Uint8>(std::min(color.r + 8, 255)),
@@ -23,7 +23,7 @@ void AssetsListWindow::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
-    int yPos = m_assetStartYPos - m_scrollOffset;
+    int yPos = rect.y + m_assetStartYPos - m_scrollOffset;
     int i = 0;
     for (const Asset& asset : *m_assetsList->getAllAssets()) {
         // Use alternative background color rect for every second asset
@@ -37,7 +37,7 @@ void AssetsListWindow::render() {
         int videoFrameWidth, videoFrameHeight;
         SDL_QueryTexture(asset.assetFrameTexture, nullptr, nullptr, &videoFrameWidth, &videoFrameHeight);
 
-        SDL_Rect thumbnailRect = { m_assetXPos, yPos, m_assetImageWidth, m_assetImageHeight };
+        SDL_Rect thumbnailRect = { rect.x + m_assetXPos, yPos, m_assetImageWidth, m_assetImageHeight };
         // If the video frame is too thin, make a black BG and put it in the middle
         if (videoFrameWidth * m_assetImageHeight < videoFrameHeight * m_assetImageWidth) {
             SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
@@ -49,8 +49,8 @@ void AssetsListWindow::render() {
         SDL_RenderCopy(p_renderer, asset.assetFrameTexture, nullptr, &thumbnailRect);
 
         renderText(p_renderer,
-            m_assetXPos + m_assetImageWidth + 6, // X position
-            yPos + 4,                            // Y position
+            rect.x + m_assetXPos + m_assetImageWidth + 6, // X position
+            yPos + 4,                                     // Y position
             getFont(),
             asset.assetName.c_str());
 
@@ -62,7 +62,7 @@ void AssetsListWindow::render() {
     assetListLength = m_assetsList->getAssetCount() * m_assetHeight;
     if (assetListLength + m_assetStartYPos > rect.h) {
         // Draw the scrollbar border
-        SDL_Rect scrollbarBorder = { rect.w - m_scrollBarXPos - m_scrollBarWidth, m_assetStartYPos, m_scrollBarWidth, rect.h - 2 * m_assetStartYPos };
+        SDL_Rect scrollbarBorder = { rect.x + rect.w - m_scrollBarXPos - m_scrollBarWidth, m_assetStartYPos, m_scrollBarWidth, rect.h - 2 * m_assetStartYPos };
         SDL_SetRenderDrawColor(p_renderer, m_scrollBarBorderColor.r, m_scrollBarBorderColor.g, m_scrollBarBorderColor.b, m_scrollBarBorderColor.a);
         SDL_RenderFillRect(p_renderer, &scrollbarBorder);
 
@@ -92,8 +92,6 @@ void AssetsListWindow::update(int x, int y, int w, int h) {
 }
 
 void AssetsListWindow::handleEvent(SDL_Event& event) {
-    static bool mouseInThisWindow = false;
-
     switch (event.type) {
     case SDL_MOUSEMOTION: {
         SDL_Point mousePoint = { event.motion.x, event.motion.y };

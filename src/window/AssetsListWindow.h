@@ -12,7 +12,7 @@
  */
 class AssetsListWindow : public Window {
 public:
-    AssetsListWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
+    AssetsListWindow(AssetsList* assetsList, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 27, 30, 32, 255 });
     ~AssetsListWindow();
 
     void render() override;
@@ -38,6 +38,7 @@ private:
     SDL_Color m_altColor; // Alternative color for alterating assets BG
     int m_scrollOffset = 0;
     int m_scrollSpeed = 20;
+    bool mouseInThisWindow = false;
 
     int m_assetXPos = 10; // Whitespace amount left of an asset image
     int m_assetStartYPos = 8; // y-pos where the first asset starts

@@ -14,7 +14,7 @@
  */
 class TimeLineWindow : public Window {
 public:
-    TimeLineWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 42, 46, 50, 255 });
+    TimeLineWindow(Timeline* timeline, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 42, 46, 50, 255 });
     ~TimeLineWindow();
 
     void render() override;

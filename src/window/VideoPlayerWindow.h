@@ -12,7 +12,7 @@
  */
 class VideoPlayerWindow : public Window {
 public:
-    VideoPlayerWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
+    VideoPlayerWindow(Timeline* timeline, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
     ~VideoPlayerWindow();
 
     void render() override;

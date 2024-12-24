@@ -3,10 +3,12 @@
 #include "TimelineWindow.h"
 #include "VideoPlayerWindow.h"
 
-VideoPlayerWindow::VideoPlayerWindow(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
+VideoPlayerWindow::VideoPlayerWindow(Timeline* timeline, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     setVideoRect(&rect);
+
+    m_timeline = timeline;
 
     // Initialize SDL audio device and resampler (SwrContext)
     SDL_zero(m_audioSpec);
@@ -39,21 +41,10 @@ void VideoPlayerWindow::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
-    if (m_timeline) {
-        SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
-        SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
+    SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
+    SDL_RenderFillRect(p_renderer, &m_videoRect); // Draw empty frame
 
-        renderTimeline();
-    }
-    else {
-        // Find the root window
-        Window* rootWindow = this;
-        while (rootWindow->parent) {
-            rootWindow = rootWindow->parent;
-        }
-        // Find the timeline and save it
-        m_timeline = rootWindow->findType<TimeLineWindow>()->tempGetTimeline();
-    }
+    renderTimeline();
 }
 
 void VideoPlayerWindow::handleEvent(SDL_Event& event) { }
