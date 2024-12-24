@@ -67,8 +67,8 @@ int Timeline::getAudioTrackID(int trackPos) { return m_audioTrackPosToIDMap[trac
 int Timeline::getVideoTrackPos(int trackID) { return m_videoTrackIDtoPosMap[trackID]; }
 int Timeline::getAudioTrackPos(int trackID) { return m_audioTrackIDtoPosMap[trackID]; }
 
-std::vector<VideoSegment>* Timeline::getAllVideoSegments() { return &m_videoSegments; }
-std::vector<AudioSegment>* Timeline::getAllAudioSegments() { return &m_audioSegments; }
+const std::vector<VideoSegment>* Timeline::getAllVideoSegments() { return &m_videoSegments; }
+const std::vector<AudioSegment>* Timeline::getAllAudioSegments() { return &m_audioSegments; }
 
 // TODO: return only the video segment with the highest trackID at this time
 VideoSegment* Timeline::getCurrentVideoSegment() {

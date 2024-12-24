@@ -68,7 +68,7 @@ void TimeLineWindow::render() {
     }
 
     // Draw all video segments on the video tracks
-    for (VideoSegment& segment : *m_timeline->getAllVideoSegments()) {
+    for (const VideoSegment& segment : *m_timeline->getAllVideoSegments()) {
         // If fully outside render view, do not render
         if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
 
@@ -149,7 +149,7 @@ void TimeLineWindow::render() {
     }
 
     // Draw all audio segments on the audio tracks
-    for (AudioSegment& segment : *m_timeline->getAllAudioSegments()) {
+    for (const AudioSegment& segment : *m_timeline->getAllAudioSegments()) {
         // If fully outside render view, do not render
         if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
 

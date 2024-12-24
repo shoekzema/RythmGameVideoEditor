@@ -51,7 +51,7 @@ struct SegmentPointer {
 
 enum TrackType {
     VIDEO = 0,
-    AUDIO = 1
+    AUDIO = 1,
 };
 
 struct Track {
@@ -87,7 +87,7 @@ public:
     int getVideoTrackPos(int trackID); int getAudioTrackPos(int trackID);
 
     // Get all video / audio segments
-    std::vector<VideoSegment>* getAllVideoSegments(); std::vector<AudioSegment>* getAllAudioSegments();
+    const std::vector<VideoSegment>* getAllVideoSegments(); const std::vector<AudioSegment>* getAllAudioSegments();
 
     // Get the video / audio segment that should currently be playing
     VideoSegment* getCurrentVideoSegment(); AudioSegment* getCurrentAudioSegment();
