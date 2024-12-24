@@ -28,14 +28,21 @@ set(SOURCES
 # Add source to this project's executable.
 add_executable (RythmGameVideoEditor  "src/main.cpp" 
     "src/Application.h" "src/Application.cpp" 
+    "src/util.h" "src/util.cpp" 
+
     "src/window/Window.h" "src/window/Window.cpp" 
     "src/window/WindowHSplit.h" "src/window/WindowHSplit.cpp" 
     "src/window/WindowVSplit.h" "src/window/WindowVSplit.cpp" 
     "src/window/AssetsListWindow.h" "src/window/AssetsListWindow.cpp" 
     "src/window/VideoPlayerWindow.h" "src/window/VideoPlayerWindow.cpp" 
     "src/window/TimelineWindow.h" "src/window/TimelineWindow.cpp" 
-    "src/util.h" "src/util.cpp" 
-    "src/core/VideoData.h" "src/window/WindowIncludes.h" "src/window/ContextMenu.h" "src/core/Timeline.h" "src/core/Timeline.cpp")
+    "src/window/ContextMenu.h"
+    "src/window/WindowIncludes.h"
+
+    "src/core/Timeline.h" "src/core/Timeline.cpp" 
+    "src/core/AssetsList.h" "src/core/AssetsList.cpp"
+    "src/core/VideoData.h"
+)
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)
