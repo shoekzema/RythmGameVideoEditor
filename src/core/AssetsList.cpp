@@ -1,147 +1,23 @@
-#include <iostream>
-#include <filesystem>
 #include <SDL.h>
-#include <SDL_ttf.h>
+#include <iostream>
+#include <vector>
+#include <filesystem>
 #include "AssetsList.h"
+#include "VideoData.h"
 #include "util.h"
 
-AssetsList::AssetsList(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent, SDL_Color color)
-    : Window(x, y, w, h, renderer, eventManager, parent, color)
-{
-    m_altColor = {
-        static_cast<Uint8>(std::min(color.r + 8, 255)),
-        static_cast<Uint8>(std::min(color.g + 8, 255)),
-        static_cast<Uint8>(std::min(color.b + 9, 255)),
-        color.a
-    };
+AssetsList::AssetsList(SDL_Renderer* renderer) { 
+    m_renderer = renderer;
 }
 
-AssetsList::~AssetsList() {}
+AssetsList::~AssetsList() { }
 
-void AssetsList::render() {
-    SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
-    SDL_RenderFillRect(p_renderer, &rect); // Draw background
+bool AssetsList::IsEmpty() { return m_assets.empty(); }
 
-    int yPos = m_assetStartYPos - m_scrollOffset;
-    for (int i = 0; i < m_assets.size(); i++) {
-        // Use alternative background color rect for every second asset
-        if (i % 2 == 1) {
-            SDL_Rect altBG = { rect.x, yPos - 1, rect.w, m_assetImageHeight + 2 };
-            SDL_SetRenderDrawColor(p_renderer, m_altColor.r, m_altColor.g, m_altColor.b, m_altColor.a);
-            SDL_RenderFillRect(p_renderer, &altBG); // Draw background
-        }
+int AssetsList::getAssetCount() { return static_cast<int>(m_assets.size()); }
 
-        // Get the width and height of the original video texture
-        int videoFrameWidth, videoFrameHeight;
-        SDL_QueryTexture(m_assets[i].assetFrameTexture, nullptr, nullptr, &videoFrameWidth, &videoFrameHeight);
-
-        SDL_Rect thumbnailRect = { m_assetXPos, yPos, m_assetImageWidth, m_assetImageHeight };
-        // If the video frame is too thin, make a black BG and put it in the middle
-        if (videoFrameWidth * m_assetImageHeight < videoFrameHeight * m_assetImageWidth) {
-            SDL_SetRenderDrawColor(p_renderer, 0, 0, 0, 255); // black
-            SDL_RenderFillRect(p_renderer, &thumbnailRect);
-
-            thumbnailRect.w = (videoFrameWidth * m_assetImageHeight) / videoFrameHeight;
-            thumbnailRect.x += (m_assetImageWidth - thumbnailRect.w) / 2; // Center horizontally
-        }
-        SDL_RenderCopy(p_renderer, m_assets[i].assetFrameTexture, nullptr, &thumbnailRect);
-
-        renderText(p_renderer,
-            m_assetXPos + m_assetImageWidth + 6, // X position
-            yPos + 4,                            // Y position
-            getFont(),
-            m_assets[i].assetName.c_str());
-
-        yPos += 2 + m_assetImageHeight;
-    }
-
-    // If scrolling is possible, draw the scrollbar
-    int assetListLength;
-    assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight;
-    if (assetListLength + m_assetStartYPos > rect.h) {
-        // Draw the scrollbar border
-        SDL_Rect scrollbarBorder = { rect.w - m_scrollBarXPos - m_scrollBarWidth, m_assetStartYPos, m_scrollBarWidth, rect.h - 2 * m_assetStartYPos };
-        SDL_SetRenderDrawColor(p_renderer, m_scrollBarBorderColor.r, m_scrollBarBorderColor.g, m_scrollBarBorderColor.b, m_scrollBarBorderColor.a);
-        SDL_RenderFillRect(p_renderer, &scrollbarBorder);
-
-        // Draw the scrollbar background
-        SDL_Rect scrollbarBackground = { scrollbarBorder.x + 1, scrollbarBorder.y + 1, scrollbarBorder.w - 2, scrollbarBorder.h - 2 };
-        SDL_SetRenderDrawColor(p_renderer, m_scrollBarBGColor.r, m_scrollBarBGColor.g, m_scrollBarBGColor.b, m_scrollBarBGColor.a);
-        SDL_RenderFillRect(p_renderer, &scrollbarBackground);
-
-        // Draw the scrollbar handle
-        int scrollbarYpos = scrollbarBorder.y + (m_scrollOffset * scrollbarBorder.h / assetListLength);
-        int scrollbarHeight = scrollbarBorder.h * scrollbarBorder.h / assetListLength;
-        SDL_Rect scrollbarHandle = { scrollbarBorder.x, scrollbarYpos, scrollbarBorder.w, scrollbarHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_scrollBarColor.r, m_scrollBarColor.g, m_scrollBarColor.b, m_scrollBarColor.a);
-        SDL_RenderFillRect(p_renderer, &scrollbarHandle);
-    }
-}
-
-void AssetsList::update(int x, int y, int w, int h) {
-    rect = { x, y, w, h };
-
-    // If the list is longer than can be displayed, update the furthest yPos the scroll position can be in. (So when increasing the window size, it will scroll up if possible)
-    int assetListLength;
-    assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
-    if (assetListLength > rect.h) {
-        if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
-    }
-}
-
-void AssetsList::handleEvent(SDL_Event& event) {
-    static bool mouseInThisWindow = false;
-
-    switch (event.type) {
-    case SDL_MOUSEMOTION: {
-        SDL_Point mousePoint = { event.motion.x, event.motion.y };
-        mouseInThisWindow = SDL_PointInRect(&mousePoint, &rect) ? true : false;
-        break;
-    }
-    case SDL_MOUSEWHEEL: {
-        if (!mouseInThisWindow) break;
-
-        // Check if scrolling neccesary
-        int assetListLength = static_cast<int>(m_assets.size()) * m_assetHeight + m_assetStartYPos;
-        if (assetListLength <= rect.h) break;
-
-        // Scroll
-        m_scrollOffset -= event.wheel.y * m_scrollSpeed;
-
-        // Clamp the scroll position
-        if (m_scrollOffset < 0) m_scrollOffset = 0;
-        if (m_scrollOffset > assetListLength + m_assetStartYPos - rect.h) m_scrollOffset = assetListLength + m_assetStartYPos - rect.h;
-        break;
-    }
-    case SDL_DROPFILE: {
-        if (!mouseInThisWindow) break;
-
-        const char* droppedFile = event.drop.file;
-        loadFile(droppedFile);
-        SDL_free(event.drop.file);
-        break;
-    }
-    }
-}
-
-Window* AssetsList::findTypeImpl(const std::type_info& type) {
-    if (type == typeid(AssetsList)) {
-        return this;
-    }
-    return nullptr;
-}
-
-AssetData* AssetsList::getAssetFromAssetList(int mouseX, int mouseY) {
-    // If no assets loaded in, return null
-    if (m_assets.empty()) return nullptr;
-
-    // Otherwise, loop through all assets
-    for (int i = 0; i < m_assets.size(); i++) {
-        if (mouseY + m_scrollOffset > m_assetStartYPos + i * m_assetHeight && mouseY + m_scrollOffset < m_assetStartYPos + (i+1) * m_assetHeight) {
-            return new AssetData(m_assets[i].videoData, m_assets[i].audioData); // If clicked inside the y-range of the this asset, return it
-        }
-    }
-    return nullptr;
+const std::vector<Asset>* AssetsList::getAllAssets() {
+    return &m_assets;
 }
 
 bool AssetsList::loadFile(const char* filepath) {
@@ -250,9 +126,9 @@ bool AssetsList::loadFile(const char* filepath) {
 
         // Set up SwsContext for frame conversion (YUV -> RGB)
         // Initializes the scaling / conversion context, used to convert the decoded frame(YUV format) to RGB format.
-        newAsset.videoData->swsContext = sws_getContext(newAsset.videoData->codecContext->width, newAsset.videoData->codecContext->height, 
+        newAsset.videoData->swsContext = sws_getContext(newAsset.videoData->codecContext->width, newAsset.videoData->codecContext->height,
             newAsset.videoData->codecContext->pix_fmt,
-            newAsset.videoData->codecContext->width, newAsset.videoData->codecContext->height, 
+            newAsset.videoData->codecContext->width, newAsset.videoData->codecContext->height,
             AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
     }
     else {
@@ -364,7 +240,7 @@ SDL_Texture* AssetsList::getThumbnail(VideoData* videoData) {
     }
 #endif // _WIN32
     // Otherwise, get the first video frame as the thumbnail
-    return videoData->getFrameTexture(p_renderer, 0);
+    return videoData->getFrameTexture(m_renderer, 0);
 }
 
 #ifdef _WIN32
@@ -413,7 +289,7 @@ SDL_Texture* AssetsList::getWindowsThumbnail(const wchar_t* wfilepath) {
                 }
 
                 // Create SDL_Texture from the bitmap data
-                texture = SDL_CreateTexture(p_renderer,
+                texture = SDL_CreateTexture(m_renderer,
                     SDL_PIXELFORMAT_ARGB8888,
                     SDL_TEXTUREACCESS_STREAMING,
                     bm.bmWidth,

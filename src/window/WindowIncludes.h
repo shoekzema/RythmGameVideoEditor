@@ -4,6 +4,6 @@
 #include "WindowHSplit.h"
 #include "WindowVSplit.h"
 
-#include "AssetsList.h"
-#include "Timeline.h"
-#include "VideoPlayer.h"
+#include "AssetsListWindow.h"
+#include "TimelineWindow.h"
+#include "VideoPlayerWindow.h"

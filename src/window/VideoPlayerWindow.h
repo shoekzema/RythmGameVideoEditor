@@ -7,13 +7,13 @@
 #include "VideoData.h"
 
 /**
- * @class VideoPlayer
+ * @class VideoPlayerWindow
  * @brief Window segment that can render videos.
  */
-class VideoPlayer : public Window {
+class VideoPlayerWindow : public Window {
 public:
-    VideoPlayer(int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
-    ~VideoPlayer();
+    VideoPlayerWindow(Timeline* timeline, int x, int y, int w, int h, SDL_Renderer* renderer, EventManager* eventManager, Window* parent = nullptr, SDL_Color color = { 83, 83, 83, 255 });
+    ~VideoPlayerWindow();
 
     void render() override;
     void update(int x, int y, int w, int h) override;

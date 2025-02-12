@@ -13,7 +13,9 @@ project ("RythmGameVideoEditor")
 
 
 # Include directories for headers
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src 
+                    ${CMAKE_SOURCE_DIR}/src/core
+                    ${CMAKE_SOURCE_DIR}/src/window)
 
 # Add the source files
 set(SOURCES
@@ -26,14 +28,21 @@ set(SOURCES
 # Add source to this project's executable.
 add_executable (RythmGameVideoEditor  "src/main.cpp" 
     "src/Application.h" "src/Application.cpp" 
+    "src/util.h" "src/util.cpp" 
+
     "src/window/Window.h" "src/window/Window.cpp" 
     "src/window/WindowHSplit.h" "src/window/WindowHSplit.cpp" 
     "src/window/WindowVSplit.h" "src/window/WindowVSplit.cpp" 
-    "src/window/AssetsList.h" "src/window/AssetsList.cpp" 
-    "src/window/VideoPlayer.h" "src/window/VideoPlayer.cpp" 
-    "src/window/TimeLine.h" "src/window/Timeline.cpp" 
-    "src/util.h" "src/util.cpp" 
-    "src/VideoData.h" "src/window/WindowIncludes.h" "src/ContextMenu.h")
+    "src/window/AssetsListWindow.h" "src/window/AssetsListWindow.cpp" 
+    "src/window/VideoPlayerWindow.h" "src/window/VideoPlayerWindow.cpp" 
+    "src/window/TimelineWindow.h" "src/window/TimelineWindow.cpp" 
+    "src/window/ContextMenu.h"
+    "src/window/WindowIncludes.h"
+
+    "src/core/Timeline.h" "src/core/Timeline.cpp" 
+    "src/core/AssetsList.h" "src/core/AssetsList.cpp"
+    "src/core/VideoData.h"
+)
 
 # Set a moderate warning level
 target_compile_options(RythmGameVideoEditor PRIVATE /W3)
