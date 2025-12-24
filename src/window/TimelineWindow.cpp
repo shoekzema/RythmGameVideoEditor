@@ -12,542 +12,31 @@ TimeLineWindow::TimeLineWindow(Timeline* timeline, int x, int y, int w, int h, S
     : Window(x, y, w, h, renderer, eventManager, parent, color)
 {
     m_timeline = timeline;
+    m_rendererImpl = new TimelineRenderer(m_timeline, p_renderer);
+    m_controller = new TimelineController(m_timeline, &m_selection, &m_view, p_renderer);
 }
 
 TimeLineWindow::~TimeLineWindow() {
     // No need to delete renderer since it is managed elsewhere
+    delete m_rendererImpl;
+    delete m_controller;
 }
 
 void TimeLineWindow::render() {
-    // Background
-    SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
-    SDL_RenderFillRect(p_renderer, &rect);
-
-    // Top bar with time labels
-    renderTopBar();
-
-    // Tracks (video + audio)
-    renderVideoTracks();
-    renderVideoSegments();
-    renderAudioTracks();
-    renderAudioSegments();
-
-    // Current time indicator
-    renderTimeIndicator();
+    m_rendererImpl->render(rect, m_view, m_selection);
 }
-
-/* Rendering helpers ----------------------------------------------------- */
-
-void TimeLineWindow::renderTopBar() {
-    int xPos = rect.x + m_trackStartXPos;
-    int yPos = rect.y;
-    Uint32 timeLabel = m_scrollOffset;
-    SDL_SetRenderDrawColor(p_renderer, m_timeLabelColor.r, m_timeLabelColor.g, m_timeLabelColor.b, m_timeLabelColor.a);
-
-    while (xPos < rect.x + rect.w) {
-        SDL_Rect textRect = renderTextWithCustomSpacing(p_renderer, xPos, yPos,
-            getFont(), formatTime(timeLabel, m_timeline->getFPS()).c_str(),
-            -1, m_timeLabelColor);
-
-        SDL_RenderDrawLine(p_renderer, xPos, rect.y + textRect.h, xPos, rect.y + m_topBarheight); // Big label
-        SDL_RenderDrawLine(p_renderer, xPos + m_timeLabelInterval / 2, rect.y + (int)(textRect.h * 1.5), xPos + m_timeLabelInterval / 2, rect.y + m_topBarheight); // Small halfway label
-
-        xPos += m_timeLabelInterval;
-        timeLabel += m_zoom;
-    }
-}
-
-void TimeLineWindow::renderVideoTracks() {
-    for (int i = 0; i < m_timeline->getVideoTrackCount(); i++) {
-        int trackYpos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() - 1 - i) * m_rowHeight;
-
-        SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_betweenLineColor.r, m_betweenLineColor.g, m_betweenLineColor.b, m_betweenLineColor.a);
-        SDL_RenderFillRect(p_renderer, &backgroundRect);
-
-        SDL_Rect videoTrackDataRect = { rect.x, trackYpos + 1, m_trackDataWidth, m_trackHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_videoTrackDataColor.r, m_videoTrackDataColor.g, m_videoTrackDataColor.b, m_videoTrackDataColor.a);
-        SDL_RenderFillRect(p_renderer, &videoTrackDataRect);
-        renderText(p_renderer,
-            videoTrackDataRect.x + videoTrackDataRect.w / 4,
-            videoTrackDataRect.y + videoTrackDataRect.h / 4,
-            getFontBig(),
-            ("V" + std::to_string(i)).c_str());
-
-        SDL_Rect videoTrackRect = { rect.x + m_trackStartXPos, trackYpos + 1, rect.w - m_trackStartXPos, m_trackHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_videoTrackBGColor.r, m_videoTrackBGColor.g, m_videoTrackBGColor.b, m_videoTrackBGColor.a);
-        SDL_RenderFillRect(p_renderer, &videoTrackRect);
-    }
-}
-
-void TimeLineWindow::renderVideoSegments() {
-    const auto* segments = m_timeline->getAllVideoSegments();
-    if (!segments) return;
-
-    for (const VideoSegment& segment : *segments) {
-        // Cull fully outside segments
-        if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
-
-        Uint32 xPos = segment.timelinePosition - m_scrollOffset;
-        int diff = 0;
-        if (m_scrollOffset > segment.timelinePosition) {
-            xPos = 0;
-            diff = m_scrollOffset - segment.timelinePosition;
-        }
-
-        int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int trackPos = m_timeline->getVideoTrackPos(segment.trackID);
-        int renderYPos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() - 1 - trackPos) * m_rowHeight;
-        int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
-
-        SDL_Rect outlineRect = { renderXPos - 1, renderYPos - 1, renderWidth + 2, m_trackHeight + 2 };
-        if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), &segment) != m_selectedVideoSegments.end()) {
-            SDL_SetRenderDrawColor(p_renderer, m_segmentHighlightColor.r, m_segmentHighlightColor.g, m_segmentHighlightColor.b, m_segmentHighlightColor.a);
-        } 
-        else {
-            SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
-        }
-        SDL_RenderFillRect(p_renderer, &outlineRect);
-
-        SDL_Rect segmentRect = { renderXPos + 1, renderYPos + 1, renderWidth - 2, m_trackHeight - 2 };
-        SDL_SetRenderDrawColor(p_renderer, m_videoTrackSegmentColor.r, m_videoTrackSegmentColor.g, m_videoTrackSegmentColor.b, m_videoTrackSegmentColor.a);
-        SDL_RenderFillRect(p_renderer, &segmentRect);
-
-        // Draw thumbnail frames (first / last) safely
-        int videoFrameWidth = 0, videoFrameHeight = 0;
-        SDL_QueryTexture(segment.firstFrame, nullptr, nullptr, &videoFrameWidth, &videoFrameHeight);
-        if (videoFrameWidth > 0 && videoFrameHeight > 0) {
-            // Draw the first and last frame of the video
-            int frameInTrackWidth = (m_trackHeight - 2) * videoFrameWidth / videoFrameHeight; // How wide we want the frames
-
-            // Draw the first frame
-            int firstFrameWidth = std::min(renderWidth - 2, frameInTrackWidth); // How wide can we actually make it
-            SDL_Rect firstFrameRect = { renderXPos + 1, renderYPos + 1, firstFrameWidth, m_trackHeight - 2 };
-            int sourceWidth = videoFrameWidth * firstFrameWidth / frameInTrackWidth; // How much to take from the original frame texture
-            SDL_Rect sourceRect = { 0, 0, sourceWidth, videoFrameHeight }; // Crop the rest out (if necessary)
-            SDL_RenderCopy(p_renderer, segment.firstFrame, &sourceRect, &firstFrameRect);
-
-            int renderWidthLeftOver = renderWidth - 2 - firstFrameWidth;
-            if (renderWidthLeftOver > 0) {
-                // Draw the last frame
-                int lastFrameWidth = std::min(renderWidthLeftOver, frameInTrackWidth); // How wide can we actually make it
-                SDL_Rect lastFrameRect = { renderXPos + renderWidth - 1 - lastFrameWidth, renderYPos + 1, lastFrameWidth, m_trackHeight - 2 };
-                sourceRect.w = videoFrameWidth * lastFrameWidth / frameInTrackWidth; // How much to take from the original frame texture
-                SDL_RenderCopy(p_renderer, segment.lastFrame, &sourceRect, &lastFrameRect);
-            }
-        }
-    }
-}
-
-void TimeLineWindow::renderAudioTracks() {
-    for (int i = 0; i < m_timeline->getAudioTrackCount(); i++) {
-        int trackYpos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + i) * m_rowHeight;
-
-        SDL_Rect backgroundRect = { rect.x, trackYpos, rect.w, m_rowHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_betweenLineColor.r, m_betweenLineColor.g, m_betweenLineColor.b, m_betweenLineColor.a);
-        SDL_RenderFillRect(p_renderer, &backgroundRect);
-
-        SDL_Rect audioTrackDataRect = { rect.x, trackYpos + 1, m_trackDataWidth, m_trackHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_audioTrackDataColor.r, m_audioTrackDataColor.g, m_audioTrackDataColor.b, m_audioTrackDataColor.a);
-        SDL_RenderFillRect(p_renderer, &audioTrackDataRect);
-        renderText(p_renderer,
-            audioTrackDataRect.x + audioTrackDataRect.w / 4,
-            audioTrackDataRect.y + audioTrackDataRect.h / 4,
-            getFontBig(),
-            ("A" + std::to_string(i)).c_str());
-
-        SDL_Rect audioTrackRect = { rect.x + m_trackStartXPos, trackYpos + 1, rect.w - m_trackStartXPos, m_trackHeight };
-        SDL_SetRenderDrawColor(p_renderer, m_audioTrackBGColor.r, m_audioTrackBGColor.g, m_audioTrackBGColor.b, m_audioTrackBGColor.a);
-        SDL_RenderFillRect(p_renderer, &audioTrackRect);
-    }
-}
-
-void TimeLineWindow::renderAudioSegments() {
-    const auto* segments = m_timeline->getAllAudioSegments();
-    if (!segments) return;
-
-    for (const AudioSegment& segment : *segments) {
-        if (m_scrollOffset > segment.timelinePosition + segment.timelineDuration) continue;
-
-        Uint32 xPos = segment.timelinePosition - m_scrollOffset;
-        int diff = 0;
-        if (m_scrollOffset > segment.timelinePosition) {
-            xPos = 0;
-            diff = m_scrollOffset - segment.timelinePosition;
-        }
-
-        int renderXPos = rect.x + m_trackStartXPos + xPos * m_timeLabelInterval / m_zoom;
-        int trackPos = m_timeline->getAudioTrackPos(segment.trackID);
-        int renderYPos = rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + trackPos) * m_rowHeight;
-        int renderWidth = (segment.timelineDuration - diff) * m_timeLabelInterval / m_zoom;
-
-        SDL_Rect outlineRect = { renderXPos - 1, renderYPos - 1, renderWidth + 2, m_trackHeight + 2 };
-        if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), &segment) != m_selectedAudioSegments.end()) {
-            SDL_SetRenderDrawColor(p_renderer, m_segmentHighlightColor.r, m_segmentHighlightColor.g, m_segmentHighlightColor.b, m_segmentHighlightColor.a);
-        } else {
-            SDL_SetRenderDrawColor(p_renderer, m_segmentOutlineColor.r, m_segmentOutlineColor.g, m_segmentOutlineColor.b, m_segmentOutlineColor.a);
-        }
-        SDL_RenderFillRect(p_renderer, &outlineRect);
-
-        SDL_Rect segmentRect = { renderXPos + 1, renderYPos + 1, renderWidth - 2, m_trackHeight - 2 };
-        SDL_SetRenderDrawColor(p_renderer, m_audioTrackSegmentColor.r, m_audioTrackSegmentColor.g, m_audioTrackSegmentColor.b, m_audioTrackSegmentColor.a);
-        SDL_RenderFillRect(p_renderer, &segmentRect);
-    }
-}
-
-void TimeLineWindow::renderTimeIndicator() {
-    if (m_scrollOffset <= m_timeline->getCurrentTime()) {
-        int indicatorX = m_trackStartXPos + (m_timeline->getCurrentTime() - m_scrollOffset) * m_timeLabelInterval / m_zoom;
-        SDL_SetRenderDrawColor(p_renderer, m_timeIndicatorColor.r, m_timeIndicatorColor.g, m_timeIndicatorColor.b, m_timeIndicatorColor.a);
-
-        SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y, rect.x + indicatorX, rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + m_timeline->getAudioTrackCount()) * m_rowHeight);
-
-        if (m_zoom <= m_indicatorFrameDisplayThreshold) {
-            int indicatorXplus1 = indicatorX + m_timeLabelInterval / m_zoom;
-            SDL_RenderDrawLine(p_renderer, rect.x + indicatorX, rect.y + m_topBarheight, rect.x + indicatorXplus1, rect.y + m_topBarheight);
-        }
-    }
-}
-
-/* Event helpers --------------------------------------------------------- */
 
 void TimeLineWindow::handleEvent(SDL_Event& event) {
-    static bool mouseInThisWindow = false;
-
-    switch (event.type) {
-    case SDL_KEYDOWN:
-        handleKeyDown(event);
-        break;
-    case SDL_MOUSEBUTTONDOWN:
-        handleMouseButtonDown(event);
-        break;
-    case SDL_MOUSEMOTION:
-        // keep track of whether the mouse is within this window
-        {
-            SDL_Point mousePoint = { event.motion.x, event.motion.y };
-            mouseInThisWindow = SDL_PointInRect(&mousePoint, &rect) ? true : false;
-        }
-        handleMouseMotion(event);
-        break;
-    case SDL_MOUSEBUTTONUP:
-        handleMouseButtonUp(event);
-        break;
-    case SDL_MOUSEWHEEL:
-        // keep mouseInThisWindow state from previous motion events
-        if (!mouseInThisWindow) break;
-        handleMouseWheel(event);
-        break;
-    default:
-        break;
-    }
+    m_controller->handleEvent(event, rect);
 }
-
-void TimeLineWindow::handleKeyDown(const SDL_Event& event) {
-    switch (event.key.keysym.sym) {
-        case SDLK_SPACE:
-            m_timeline->togglePlaying();
-            break;
-        case SDLK_DELETE:
-            deleteSelectedSegments();
-            break;
-        case SDLK_RIGHT:
-            m_timeline->setCurrentTime(m_timeline->getCurrentTime() + 1);
-            break;
-        case SDLK_LEFT: {
-            Uint32 currentTime = m_timeline->getCurrentTime();
-            if (currentTime != 0) m_timeline->setCurrentTime(currentTime - 1);
-            break;
-        }
-        default:
-            break;
-    }
-}
-
-Uint32 TimeLineWindow::frameFromMouseX(int mouseX) const {
-    if (mouseX <= rect.x + m_trackStartXPos) return 0;
-    return (mouseX - rect.x - m_trackStartXPos) * m_zoom / m_timeLabelInterval + m_scrollOffset;
-}
-
-void TimeLineWindow::handleMouseButtonDown(const SDL_Event& event) {
-    SDL_Point mouseButton = { event.button.x, event.button.y };
-    if (!SDL_PointInRect(&mouseButton, &rect)) return;
-    if (m_isDragging) return;
-
-    // Click in left column (track headers)
-    if (mouseButton.x < m_trackStartXPos) {
-        if (event.button.button == SDL_BUTTON_RIGHT) {
-            Track track = getTrackID(mouseButton);
-            if (track.trackID >= 0) {
-                std::vector<ContextMenu::MenuItem> contextMenuOptions = {
-                    { "Add Track", nullptr, {
-                        { "Add AV Track Above",    [this, track]() { m_timeline->addTrack(track, 2, true);  } },
-                        { "Add AV Track Below",    [this, track]() { m_timeline->addTrack(track, 2, false); } },
-                        { "Add Video Track Above", [this, track]() { m_timeline->addTrack(track, 0, true);  } },
-                        { "Add Video Track Below", [this, track]() { m_timeline->addTrack(track, 0, false); } },
-                        { "Add Audio Track Above", [this, track]() { m_timeline->addTrack(track, 1, true);  } },
-                        { "Add Audio Track Below", [this, track]() { m_timeline->addTrack(track, 1, false); } }
-                    }},
-                    { "Delete Track", [this, track]() { m_timeline->deleteTrack(track); } }
-                };
-                ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
-            }
-        }
-        return;
-    }
-
-    Uint32 clickedFrame = frameFromMouseX(mouseButton.x);
-
-    // Click in video area?
-    if (mouseButton.y > rect.y + m_topBarheight && mouseButton.y < rect.y + m_topBarheight + m_timeline->getVideoTrackCount() * m_trackHeight) {
-        int selectedTrackPos = m_timeline->getVideoTrackCount() - 1 - ((mouseButton.y - rect.y - m_topBarheight) / m_trackHeight);
-        VideoSegment* clickedVideoSegment = m_timeline->getVideoSegment(selectedTrackPos, clickedFrame);
-
-        if (clickedVideoSegment) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                // If shift is held, toggle selection of the clicked segment
-                if (SDL_GetModState() & KMOD_SHIFT) {
-                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
-                        m_selectedVideoSegments.push_back(clickedVideoSegment);
-                    }
-                    else {
-                        m_selectedVideoSegments.erase(std::remove(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment), m_selectedVideoSegments.end());
-                    }
-                }
-                else {
-                    // If shift is not held and the clicked segment was not already selected
-                    if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
-                        m_selectedVideoSegments.clear();
-                        m_selectedAudioSegments.clear();
-                        m_selectedVideoSegments.push_back(clickedVideoSegment);
-                    }
-                // initialize drag/hold state
-                    m_isHolding = true;
-                    m_mouseHoldStartX = mouseButton.x;
-                    m_lastLegalTrackPos = selectedTrackPos;
-                    m_selectedMaxTrackPos = selectedTrackPos;
-                    m_selectedMinTrackPos = selectedTrackPos;
-                    m_lastLegalFrame = clickedFrame;
-                    m_lastLegalLeftmostFrame = clickedFrame;
-
-                // compute bounds across selections
-                for (auto* vs : m_selectedVideoSegments) {
-                    if (vs->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = vs->timelinePosition;
-                    int segmentTrackPos = m_timeline->getVideoTrackPos(vs->trackID);
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                for (auto* as : m_selectedAudioSegments) {
-                    if (as->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = as->timelinePosition;
-                    int segmentTrackPos = m_timeline->getVideoTrackPos(as->trackID);
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                }
-            } 
-            else if (event.button.button == SDL_BUTTON_RIGHT) {
-                // If not already selected, unselect everything else and select this one
-                if (std::find(m_selectedVideoSegments.begin(), m_selectedVideoSegments.end(), clickedVideoSegment) == m_selectedVideoSegments.end()) {
-                    m_selectedVideoSegments.clear();
-                    m_selectedAudioSegments.clear();
-                    m_selectedVideoSegments.push_back(clickedVideoSegment);
-                }
-            }
-            return;
-        }
-    }
-    // Otherwise, if clicked in the audioTrack area
-    else if (mouseButton.y < rect.y + m_topBarheight + (m_timeline->getVideoTrackCount() + m_timeline->getAudioTrackCount()) * m_trackHeight)
-    {
-        int selectedTrackPos = (mouseButton.y - rect.y - m_topBarheight) / m_trackHeight - m_timeline->getVideoTrackCount();
-        AudioSegment* clickedAudioSegment = m_timeline->getAudioSegment(selectedTrackPos, clickedFrame);
-
-        // If we selected an audio segment
-        if (clickedAudioSegment) {
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                // If shift is held, toggle selection of the clicked segment
-                if (SDL_GetModState() & KMOD_SHIFT) {
-                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
-                        m_selectedAudioSegments.push_back(clickedAudioSegment);
-                    }
-                    else {
-                        m_selectedAudioSegments.erase(std::remove(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment), m_selectedAudioSegments.end());
-                    }
-                }
-                else {
-                    // If shift is not held and the clicked segment was not already selected
-                    if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
-                        m_selectedVideoSegments.clear();
-                        m_selectedAudioSegments.clear();
-                        m_selectedAudioSegments.push_back(clickedAudioSegment);
-                    }
-                    // initialize drag/hold state
-                    m_isHolding = true;
-                    m_mouseHoldStartX = mouseButton.x;
-                    m_lastLegalTrackPos = selectedTrackPos;
-                    m_selectedMaxTrackPos = selectedTrackPos;
-                    m_selectedMinTrackPos = selectedTrackPos;
-                    m_lastLegalFrame = clickedFrame;
-                    m_lastLegalLeftmostFrame = clickedFrame;
-
-                    // compute bounds across selections
-                    for (auto* vs : m_selectedVideoSegments) {
-                        if (vs->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = vs->timelinePosition;
-                        int segmentTrackPos = m_timeline->getVideoTrackPos(vs->trackID);
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                    for (auto* as : m_selectedAudioSegments) {
-                        if (as->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = as->timelinePosition;
-                        int segmentTrackPos = m_timeline->getVideoTrackPos(as->trackID);
-                        m_selectedMaxTrackPos = std::max(m_selectedMaxTrackPos, segmentTrackPos);
-                        m_selectedMinTrackPos = std::min(m_selectedMinTrackPos, segmentTrackPos);
-                    }
-                }
-            }
-            else if (event.button.button == SDL_BUTTON_RIGHT) {
-                // If not already selected, unselect everything else and select this one
-                if (std::find(m_selectedAudioSegments.begin(), m_selectedAudioSegments.end(), clickedAudioSegment) == m_selectedAudioSegments.end()) {
-                    m_selectedVideoSegments.clear();
-                    m_selectedAudioSegments.clear();
-                    m_selectedAudioSegments.push_back(clickedAudioSegment);
-                }
-            }
-            return;
-        }
-    }
-
-    if (event.button.button == SDL_BUTTON_LEFT) {
-        // If nothing is selected, then we want to move the currentTime to the selected time (and, if playing, pause)
-        if (m_timeline->isPlaying()) m_timeline->togglePlaying();
-        m_isMovingCurrentTime = true;
-        m_timeline->setCurrentTime(clickedFrame);
-        m_selectedVideoSegments.clear();
-        m_selectedAudioSegments.clear();
-    }
-    else if (event.button.button == SDL_BUTTON_RIGHT) {
-        // Show selected segments options
-        std::vector<ContextMenu::MenuItem> contextMenuOptions = {
-            { "Delete Selected Item(s)", [this]() { deleteSelectedSegments(); } }
-        };
-        ContextMenu::show(mouseButton.x, mouseButton.y, contextMenuOptions);
-    }
-}
-
-void TimeLineWindow::handleMouseMotion(const SDL_Event& event) {
-    SDL_Point mousePoint = { event.motion.x, event.motion.y };
-
-    // Changing current time while moving
-    if (m_isMovingCurrentTime) {
-    Uint32 hoveredFrame = frameFromMouseX(mousePoint.x);
-        m_timeline->setCurrentTime(hoveredFrame);
-    }
-
-    // Vertical move (track change)
-    if (m_isHolding) {
-        int mouseTrackPos = getTrackPos(mousePoint.y);
-        int deltaTrackPos = mouseTrackPos - m_lastLegalTrackPos;
-        if (deltaTrackPos != 0) {
-            // Check if there are enough tracks to move in the desired trackPos direction
-            bool impossibleMove = false;
-            if (deltaTrackPos > 0) {
-                if (m_selectedVideoSegments.empty()) {
-                    if (m_selectedMaxTrackPos + deltaTrackPos >= m_timeline->getAudioTrackCount()) impossibleMove = true;
-                }
-                else if (m_selectedAudioSegments.empty()) {
-                    if (m_selectedMaxTrackPos + deltaTrackPos >= m_timeline->getVideoTrackCount()) impossibleMove = true;
-                } 
-                else if (m_selectedMaxTrackPos + deltaTrackPos >= std::min(m_timeline->getVideoTrackCount(), m_timeline->getAudioTrackCount())) {
-                    impossibleMove = true;
-                }
-            } 
-            else if (deltaTrackPos < 0) {
-                if (m_selectedMinTrackPos + deltaTrackPos < 0) impossibleMove = true;
-            }
-
-            if (!impossibleMove) {
-                if (m_timeline->segmentsChangeTrack(&m_selectedVideoSegments, &m_selectedAudioSegments, deltaTrackPos)) {
-                    m_lastLegalTrackPos = mouseTrackPos;
-                    m_selectedMaxTrackPos += deltaTrackPos;
-                    m_selectedMinTrackPos += deltaTrackPos;
-                }
-            }
-        }
-    }
-
-    // Horizontal dragging start detection
-    if (m_isHolding && !m_isDragging) {
-        if (std::abs(mousePoint.x - m_mouseHoldStartX) > m_draggingThreshold) {
-            m_isDragging = true; 
-        }
-    }
-
-    // Horizontal dragging (move frames)
-    if (m_isDragging && (!m_selectedVideoSegments.empty() || !m_selectedAudioSegments.empty())) {
-        Uint32 currentFrame = frameFromMouseX(mousePoint.x);
-        if (mousePoint.x < rect.x + m_trackStartXPos) currentFrame = 0;
-            
-        Uint32 deltaFrames;
-        if (currentFrame < m_lastLegalFrame) { // moving left
-            Uint32 absDiff = m_lastLegalFrame - currentFrame;
-            if (absDiff > m_lastLegalLeftmostFrame) {
-                deltaFrames = UINT32_MAX - m_lastLegalLeftmostFrame + 1; // negative wrap
-            } 
-            else {
-                deltaFrames = UINT32_MAX - absDiff + 1; // negative of absDiff
-            }
-        } 
-        else {
-            deltaFrames = currentFrame - m_lastLegalFrame;
-        }
-
-        if (deltaFrames == 0) return;
-
-        if (m_timeline->segmentsMoveFrames(&m_selectedVideoSegments, &m_selectedAudioSegments, deltaFrames)) {
-            m_lastLegalFrame = currentFrame;
-            m_lastLegalLeftmostFrame += deltaFrames;
-        }
-    }
-}
-
-void TimeLineWindow::handleMouseButtonUp(const SDL_Event& /*event*/) {
-    m_isHolding = false;
-    m_isDragging = false;
-    m_isMovingCurrentTime = false;
-}
-
-void TimeLineWindow::handleMouseWheel(const SDL_Event& event) {
-    SDL_Keymod mod = SDL_GetModState();
-
-    // Normalize event.wheel.y to -1, 0, or 1
-    int scrollDirection = (event.wheel.y > 0) ? 1 : (event.wheel.y < 0) ? -1 : 0;
-
-    if (mod & KMOD_CTRL) {
-        if (scrollDirection > 0 && m_zoom > 2) m_zoom /= 2;
-        if (scrollDirection < 0 && m_zoom < UINT16_MAX / 2) m_zoom *= 2;
-    } else if (mod & KMOD_SHIFT) {
-        // Vertical scrolling (not implemented yet)
-    } 
-    else {
-        if ((int32_t)m_scrollOffset < scrollDirection * (int32_t)m_zoom) {
-            // Cannot go into negative -> make zero instead.
-            m_scrollOffset = 0;
-        }
-        else {
-            m_scrollOffset -= scrollDirection * m_zoom;
-        }
-    }
-}
-
-/* Existing small helpers kept unchanged --------------------------------- */
 
 void TimeLineWindow::update(int x, int y, int w, int h) {
     rect = { x, y, w, h };
 }
 
 void TimeLineWindow::deleteSelectedSegments() {
-    m_timeline->deleteSegments(&m_selectedVideoSegments, &m_selectedAudioSegments);
-    m_selectedVideoSegments.clear();
-    m_selectedAudioSegments.clear();
+    m_timeline->deleteSegments(&m_selection.selectedVideoSegments, &m_selection.selectedAudioSegments);
+    m_selection.clear();
 }
 
 Window* TimeLineWindow::findTypeImpl(const std::type_info& type) {
@@ -561,15 +50,15 @@ Track TimeLineWindow::getTrackID(SDL_Point mousePoint) {
     Track track;
     track.trackID = -1;
     for (int i = 0; i < m_timeline->getVideoTrackCount(); ++i) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * i && mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (i + 1)) {
+        if (mousePoint.y >= rect.y + m_view.topBarheight + m_view.trackHeight * i && mousePoint.y <= rect.y + m_view.topBarheight + m_view.trackHeight * (i + 1)) {
             track.trackID = m_timeline->getVideoTrackID(m_timeline->getVideoTrackCount() - 1 - i);
             track.trackType = VIDEO;
             return track;
         }
     }
     for (int i = 0; i < m_timeline->getAudioTrackCount(); ++i) {
-        if (mousePoint.y >= rect.y + m_topBarheight + m_trackHeight * (m_timeline->getVideoTrackCount() + i) &&
-            mousePoint.y <= rect.y + m_topBarheight + m_trackHeight * (m_timeline->getAudioTrackCount() + i + 1))
+        if (mousePoint.y >= rect.y + m_view.topBarheight + m_view.trackHeight * (m_timeline->getVideoTrackCount() + i) &&
+            mousePoint.y <= rect.y + m_view.topBarheight + m_view.trackHeight * (m_timeline->getAudioTrackCount() + i + 1))
         {
             track.trackID = m_timeline->getAudioTrackID(i);
             track.trackType = AUDIO;
@@ -580,50 +69,17 @@ Track TimeLineWindow::getTrackID(SDL_Point mousePoint) {
 }
 
 int TimeLineWindow::getTrackPos(int y) {
-    if (y < rect.y + m_topBarheight) return -1;
+    if (y < rect.y + m_view.topBarheight) return -1;
 
-    int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight;
+    int selectedTrackPos = (y - rect.y - m_view.topBarheight) / m_view.trackHeight;
     int videoTrackCount = m_timeline->getVideoTrackCount();
     if (selectedTrackPos < videoTrackCount) return videoTrackCount - 1 - selectedTrackPos;
+
     int audioTrackCount = m_timeline->getAudioTrackCount();
     if (selectedTrackPos < videoTrackCount + audioTrackCount) return selectedTrackPos - videoTrackCount;
     return -1;
 }
 
 bool TimeLineWindow::addAssetSegments(AssetData* data, int mouseX, int mouseY) {
-    SDL_Point mousePoint = { mouseX, mouseY };
-    if (!SDL_PointInRect(&mousePoint, &rect)) return false;
-    if (mousePoint.x < m_trackStartXPos) return false;
-
-    Uint32 selectedFrame = frameFromMouseX(mousePoint.x);
-    Track track = getTrackID(mousePoint);
-    SegmentPointer segmentPointer = m_timeline->addAssetSegments(p_renderer, data, selectedFrame, track);
-
-    if (!segmentPointer.videoSegment && !segmentPointer.audioSegment) return false;
-
-    m_selectedVideoSegments.clear();
-    m_selectedAudioSegments.clear();
-
-    if (data->videoData) m_selectedVideoSegments.push_back(segmentPointer.videoSegment);
-    if (data->audioData) m_selectedAudioSegments.push_back(segmentPointer.audioSegment);
-
-    tempAddedVid = true;
-
-    m_isHolding = true;
-    m_isDragging = true;
-    int trackPos = getTrackPos(mousePoint.y);
-    m_lastLegalTrackPos = trackPos;
-    m_selectedMaxTrackPos = trackPos;
-    m_selectedMinTrackPos = trackPos;
-    m_lastLegalFrame = selectedFrame;
-    m_lastLegalLeftmostFrame = selectedFrame;
-
-    for (auto* vs : m_selectedVideoSegments) {
-        if (vs->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = vs->timelinePosition;
-    }
-    for (auto* as : m_selectedAudioSegments) {
-        if (as->timelinePosition < m_lastLegalLeftmostFrame) m_lastLegalLeftmostFrame = as->timelinePosition;
-    }
-
-    return true;
+    return m_controller->addAssetSegments(data, mouseX, mouseY, rect);
 }

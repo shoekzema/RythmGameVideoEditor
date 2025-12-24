@@ -36,6 +36,8 @@ add_executable (RythmGameVideoEditor  "src/main.cpp"
     "src/window/AssetsListWindow.h" "src/window/AssetsListWindow.cpp" 
     "src/window/VideoPlayerWindow.h" "src/window/VideoPlayerWindow.cpp" 
     "src/window/TimelineWindow.h" "src/window/TimelineWindow.cpp" 
+    "src/window/TimelineRenderer.h" "src/window/TimelineRenderer.cpp" 
+    "src/window/TimelineController.h" "src/window/TimelineController.cpp" 
     "src/window/ContextMenu.h"
     "src/window/WindowIncludes.h"
 
