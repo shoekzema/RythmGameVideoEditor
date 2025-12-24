@@ -35,6 +35,25 @@ private:
 
     // Delete all currently selected segments
     void deleteSelectedSegments();
+
+    // Rendering helpers (refactor to keep render() concise)
+    void renderTopBar();
+    void renderVideoTracks();
+    void renderVideoSegments();
+    void renderAudioTracks();
+    void renderAudioSegments();
+    void renderTimeIndicator();
+
+    // Event handling helpers
+    void handleKeyDown(const SDL_Event& event);
+    void handleMouseButtonDown(const SDL_Event& event);
+    void handleMouseMotion(const SDL_Event& event);
+    void handleMouseButtonUp(const SDL_Event& event);
+    void handleMouseWheel(const SDL_Event& event);
+
+    // Helper to compute frame at mouse x (clamped)
+    Uint32 frameFromMouseX(int mouseX) const;
+
 private:
     Timeline* m_timeline;
     bool tempAddedVid = false;
