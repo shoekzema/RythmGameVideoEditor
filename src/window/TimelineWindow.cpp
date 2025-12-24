@@ -582,11 +582,11 @@ Track TimeLineWindow::getTrackID(SDL_Point mousePoint) {
 int TimeLineWindow::getTrackPos(int y) {
     if (y < rect.y + m_topBarheight) return -1;
 
-    int selectedTrackPos = m_timeline->getVideoTrackCount() - 1 - ((y - rect.y - m_topBarheight) / m_trackHeight);
-    if (selectedTrackPos < m_timeline->getVideoTrackCount()) return selectedTrackPos;
-
-    selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight - m_timeline->getAudioTrackCount();
-    if (selectedTrackPos < m_timeline->getAudioTrackCount()) return selectedTrackPos;
+    int selectedTrackPos = (y - rect.y - m_topBarheight) / m_trackHeight;
+    int videoTrackCount = m_timeline->getVideoTrackCount();
+    if (selectedTrackPos < videoTrackCount) return videoTrackCount - 1 - selectedTrackPos;
+    int audioTrackCount = m_timeline->getAudioTrackCount();
+    if (selectedTrackPos < videoTrackCount + audioTrackCount) return selectedTrackPos - videoTrackCount;
     return -1;
 }
 
