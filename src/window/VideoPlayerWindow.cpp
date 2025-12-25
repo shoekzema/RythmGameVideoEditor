@@ -107,7 +107,7 @@ void VideoPlayerWindow::pausePlayback() {
 }
 
 void VideoPlayerWindow::renderFrame(VideoSegment* videoSegment) {
-    Uint32 currentVideoSegmentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
+    Uint32 currentVideoSegmentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition + videoSegment->sourceStartTime;
 
     if (currentVideoSegmentFrame != m_lastVideoSegmentFrame) {
         // Get and decode the video frame at the corresponding time in the segment
@@ -182,7 +182,7 @@ bool VideoPlayerWindow::getVideoFrame(VideoSegment* videoSegment) {
         return false;
     }
 
-    Uint32 currentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
+    Uint32 currentFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition + videoSegment->sourceStartTime;
 
     // Check if we need to seek
     bool isNewSegment = m_lastVideoSegment != videoSegment;
@@ -244,7 +244,7 @@ bool VideoPlayerWindow::processFrame(VideoSegment* videoSegment, Uint32 currentF
     // Adjust the frame's timing based on the target frame rate
     double adjustedFramePTS = framePTS * m_timeline->getFPS();
 
-    Uint32 currentPlaybackFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition;
+    Uint32 currentPlaybackFrame = m_timeline->getCurrentTime() - videoSegment->timelinePosition + videoSegment->sourceStartTime;
 
     // Check if the frame is too late
     if (adjustedFramePTS + m_frameDropThreshold < currentPlaybackFrame) {

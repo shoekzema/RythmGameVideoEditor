@@ -159,13 +159,15 @@ SegmentPointer Timeline::addAssetSegments(SDL_Renderer* renderer, AssetData* dat
 
     // In case the asset has video
     if (data->videoData) {
+		auto videoDurationInTimelineFrames = data->videoData->getVideoDurationInFrames(m_fps);
         // Create and add a new videoSegment
         videoSegment = {
             .videoData = data->videoData,
             .sourceStartTime = 0,
+            .sourceDuration = videoDurationInTimelineFrames,
             .duration = data->videoData->getVideoDurationInFrames(),
             .timelinePosition = frame,
-            .timelineDuration = data->videoData->getVideoDurationInFrames(m_fps),
+            .timelineDuration = videoDurationInTimelineFrames,
             .fps = data->videoData->getFPS(),
             .trackID = videoTrackID
         };
@@ -177,13 +179,15 @@ SegmentPointer Timeline::addAssetSegments(SDL_Renderer* renderer, AssetData* dat
     }
     // In case the asset has audio
     if (data->audioData) {
+        auto audioDurationInTimelineFrames = data->audioData->getAudioDurationInFrames(m_fps);
         // Create and add a new audioSegment
         audioSegment = {
             .audioData = data->audioData,
             .sourceStartTime = 0,
+            .sourceDuration = audioDurationInTimelineFrames,
             .duration = data->audioData->getAudioDurationInFrames(),
             .timelinePosition = frame,
-            .timelineDuration = data->audioData->getAudioDurationInFrames(m_fps),
+            .timelineDuration = audioDurationInTimelineFrames,
             .trackID = audioTrackID
         };
 

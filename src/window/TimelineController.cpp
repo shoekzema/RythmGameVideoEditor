@@ -95,6 +95,8 @@ int TimelineController::getTrackPos(int y, const SDL_Rect& rect) {
     return -1;
 }
 
+static const int EDGE_HIT_RADIUS_PIXELS = 6; // pixels near edge to start resizing
+
 void TimelineController::handleMouseButtonDown(const SDL_Event& event, const SDL_Rect& rect) {
     SDL_Point mouseButton = { event.button.x, event.button.y };
     if (!SDL_PointInRect(&mouseButton, &rect)) return;
@@ -129,7 +131,35 @@ void TimelineController::handleMouseButtonDown(const SDL_Event& event, const SDL
         VideoSegment* clickedVideoSegment = m_timeline->getVideoSegment(selectedTrackPos, clickedFrame);
 
         if (clickedVideoSegment) {
+            // Determine segment render X and width to detect edges
+            int renderX = rect.x + m_view->trackStartXPos + (int)((clickedVideoSegment->timelinePosition - m_view->scrollOffset) * m_view->timeLabelInterval / m_view->zoom);
+            int renderW = (int)(clickedVideoSegment->timelineDuration * m_view->timeLabelInterval / m_view->zoom);
+            int localMouseX = mouseButton.x - renderX;
+
             if (event.button.button == SDL_BUTTON_LEFT) {
+                // Edge hit detection for resizing (prepare mode)
+                if (localMouseX >= 0 && localMouseX <= EDGE_HIT_RADIUS_PIXELS) {
+                    // preparing left-edge resize: wait for threshold movement
+                    m_selection->isPreparingResize = true;
+                    m_selection->resizeMouseHoldStartX = mouseButton.x;
+                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_LEFT;
+                    m_selection->resizingVideoSegment = clickedVideoSegment;
+                    m_selection->resizingAudioSegment = nullptr;
+                    m_selection->resizingOriginalTimelinePosition = clickedVideoSegment->timelinePosition;
+                    m_selection->resizingOriginalTimelineDuration = clickedVideoSegment->timelineDuration;
+                    return;
+                } else if (localMouseX >= renderW - EDGE_HIT_RADIUS_PIXELS && localMouseX <= renderW) {
+                    // preparing right-edge resize
+                    m_selection->isPreparingResize = true;
+                    m_selection->resizeMouseHoldStartX = mouseButton.x;
+                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_RIGHT;
+                    m_selection->resizingVideoSegment = clickedVideoSegment;
+                    m_selection->resizingAudioSegment = nullptr;
+                    m_selection->resizingOriginalTimelinePosition = clickedVideoSegment->timelinePosition;
+                    m_selection->resizingOriginalTimelineDuration = clickedVideoSegment->timelineDuration;
+                    return;
+                }
+
                 if (SDL_GetModState() & KMOD_SHIFT) {
                     if (std::find(m_selection->selectedVideoSegments.begin(), m_selection->selectedVideoSegments.end(), clickedVideoSegment) == m_selection->selectedVideoSegments.end()) {
                         m_selection->selectedVideoSegments.push_back(clickedVideoSegment);
@@ -183,7 +213,31 @@ void TimelineController::handleMouseButtonDown(const SDL_Event& event, const SDL
         AudioSegment* clickedAudioSegment = m_timeline->getAudioSegment(selectedTrackPos, clickedFrame);
 
         if (clickedAudioSegment) {
+            int renderX = rect.x + m_view->trackStartXPos + (int)((clickedAudioSegment->timelinePosition - m_view->scrollOffset) * m_view->timeLabelInterval / m_view->zoom);
+            int renderW = (int)(clickedAudioSegment->timelineDuration * m_view->timeLabelInterval / m_view->zoom);
+            int localMouseX = mouseButton.x - renderX;
+
             if (event.button.button == SDL_BUTTON_LEFT) {
+                if (localMouseX >= 0 && localMouseX <= EDGE_HIT_RADIUS_PIXELS) {
+                    m_selection->isPreparingResize = true;
+                    m_selection->resizeMouseHoldStartX = mouseButton.x;
+                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_LEFT;
+                    m_selection->resizingAudioSegment = clickedAudioSegment;
+                    m_selection->resizingVideoSegment = nullptr;
+                    m_selection->resizingOriginalTimelinePosition = clickedAudioSegment->timelinePosition;
+                    m_selection->resizingOriginalTimelineDuration = clickedAudioSegment->timelineDuration;
+                    return;
+                } else if (localMouseX >= renderW - EDGE_HIT_RADIUS_PIXELS && localMouseX <= renderW) {
+                    m_selection->isPreparingResize = true;
+                    m_selection->resizeMouseHoldStartX = mouseButton.x;
+                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_RIGHT;
+                    m_selection->resizingAudioSegment = clickedAudioSegment;
+                    m_selection->resizingVideoSegment = nullptr;
+                    m_selection->resizingOriginalTimelinePosition = clickedAudioSegment->timelinePosition;
+                    m_selection->resizingOriginalTimelineDuration = clickedAudioSegment->timelineDuration;
+                    return;
+                }
+
                 if (SDL_GetModState() & KMOD_SHIFT) {
                     if (std::find(m_selection->selectedAudioSegments.begin(), m_selection->selectedAudioSegments.end(), clickedAudioSegment) == m_selection->selectedAudioSegments.end()) {
                         m_selection->selectedAudioSegments.push_back(clickedAudioSegment);
@@ -254,6 +308,99 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
         m_timeline->setCurrentTime(hoveredFrame);
     }
 
+    // If we are preparing resize, check threshold to actually start resizing
+    if (m_selection->isPreparingResize && !m_selection->isResizing) {
+        if (std::abs(mousePoint.x - m_selection->resizeMouseHoldStartX) > m_selection->draggingThreshold) {
+            m_selection->isResizing = true;
+            m_selection->isPreparingResize = false;
+            // mark lastLegalFrame etc to current mouse position to make subsequent operations consistent
+            m_selection->lastLegalFrame = frameFromMouseX(mousePoint.x, rect);
+        }
+    }
+
+    // Handle resizing
+    if (m_selection->isResizing) {
+        // compute new frame based on mouse x
+        Uint32 currentFrame = frameFromMouseX(mousePoint.x, rect);
+        if (mousePoint.x < rect.x + m_view->trackStartXPos) currentFrame = 0;
+
+        if (m_selection->resizingVideoSegment) {
+            VideoSegment* vs = m_selection->resizingVideoSegment;
+            if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_LEFT) {
+                // new start = currentFrame, but cannot go beyond original end
+                Uint32 maxStart = vs->timelinePosition + vs->timelineDuration - 1;
+                Uint32 minStart = vs->timelinePosition - vs->sourceStartTime;
+                if (currentFrame > maxStart) currentFrame = maxStart;
+                if (currentFrame < minStart) currentFrame = minStart;
+                // adjust duration and position
+                Uint32 newDuration = (vs->timelinePosition + vs->timelineDuration) - currentFrame;
+                // Temporarily apply
+				vs->sourceStartTime = vs->sourceStartTime + (currentFrame - vs->timelinePosition);
+                vs->timelinePosition = currentFrame;
+                vs->timelineDuration = newDuration;
+                // collision check: if collides, revert
+                if (m_timeline->isCollidingWithOtherSegments(vs)) {
+                    // revert
+                    vs->sourceStartTime  = m_selection->resizingSourceStartTime;
+                    vs->timelinePosition = m_selection->resizingOriginalTimelinePosition;
+                    vs->timelineDuration = m_selection->resizingOriginalTimelineDuration;
+                } else {
+                    // update original for continuous resize
+                    m_selection->resizingSourceStartTime          = vs->sourceStartTime;
+                    m_selection->resizingOriginalTimelinePosition = vs->timelinePosition;
+                    m_selection->resizingOriginalTimelineDuration = vs->timelineDuration;
+                }
+            } else if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_RIGHT) {
+                // new duration = currentFrame - timelinePosition
+                Uint32 maxEnd = vs->timelinePosition - vs->sourceStartTime + vs->sourceDuration;
+                if (currentFrame <= vs->timelinePosition) currentFrame = vs->timelinePosition + 1;
+                if (currentFrame > maxEnd) currentFrame = maxEnd;
+                Uint32 newDuration = currentFrame - vs->timelinePosition;
+                vs->timelineDuration = newDuration;
+                if (m_timeline->isCollidingWithOtherSegments(vs)) {
+                    vs->timelineDuration = m_selection->resizingOriginalTimelineDuration;
+                } else {
+                    m_selection->resizingOriginalTimelineDuration = vs->timelineDuration;
+                }
+            }
+        }
+        else if (m_selection->resizingAudioSegment) {
+            AudioSegment* as = m_selection->resizingAudioSegment;
+            if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_LEFT) {
+                Uint32 maxStart = as->timelinePosition + as->timelineDuration - 1;
+                Uint32 minStart = as->timelinePosition - as->sourceStartTime;
+                if (currentFrame > maxStart) currentFrame = maxStart;
+                if (currentFrame < minStart) currentFrame = minStart;
+                Uint32 newDuration = (as->timelinePosition + as->timelineDuration) - currentFrame;
+                as->sourceStartTime = as->sourceStartTime + (currentFrame - as->timelinePosition);
+                as->timelinePosition = currentFrame;
+                as->timelineDuration = newDuration;
+                if (m_timeline->isCollidingWithOtherSegments(as)) {
+                    as->sourceStartTime  = m_selection->resizingSourceStartTime;
+                    as->timelinePosition = m_selection->resizingOriginalTimelinePosition;
+                    as->timelineDuration = m_selection->resizingOriginalTimelineDuration;
+                } else {
+                    m_selection->resizingSourceStartTime          = as->sourceStartTime;
+                    m_selection->resizingOriginalTimelinePosition = as->timelinePosition;
+                    m_selection->resizingOriginalTimelineDuration = as->timelineDuration;
+                }
+            } else if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_RIGHT) {
+                Uint32 maxEnd = as->timelinePosition - as->sourceStartTime + as->sourceDuration;
+                if (currentFrame <= as->timelinePosition) currentFrame = as->timelinePosition + 1;
+                if (currentFrame > maxEnd) currentFrame = maxEnd;
+                Uint32 newDuration = currentFrame - as->timelinePosition;
+                as->timelineDuration = newDuration;
+                if (m_timeline->isCollidingWithOtherSegments(as)) {
+                    as->timelineDuration = m_selection->resizingOriginalTimelineDuration;
+                } else {
+                    m_selection->resizingOriginalTimelineDuration = as->timelineDuration;
+                }
+            }
+        }
+
+        return; // while resizing, don't process other interactions
+    }
+
     if (m_selection->isHolding) {
         int mouseTrackPos = getTrackPos(mousePoint.y, rect);
         int deltaTrackPos = mouseTrackPos - m_selection->lastLegalTrackPos;
@@ -318,6 +465,21 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
 }
 
 void TimelineController::handleMouseButtonUp(const SDL_Event& /*event*/) {
+    // If we were resizing, finalize and clear resizing state
+    if (m_selection->isResizing) {
+        m_selection->isResizing = false;
+        m_selection->resizingSide = TimelineSelectionManager::RESIZE_NONE;
+        m_selection->resizingVideoSegment = nullptr;
+        m_selection->resizingAudioSegment = nullptr;
+    }
+    // Cancel preparing resize if we release before threshold
+    if (m_selection->isPreparingResize) {
+        m_selection->isPreparingResize = false;
+        m_selection->resizingSide = TimelineSelectionManager::RESIZE_NONE;
+        m_selection->resizingVideoSegment = nullptr;
+        m_selection->resizingAudioSegment = nullptr;
+    }
+
     m_selection->isHolding = false;
     m_selection->isDragging = false;
     m_selection->isMovingCurrentTime = false;
