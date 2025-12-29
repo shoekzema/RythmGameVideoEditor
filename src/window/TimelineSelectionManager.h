@@ -29,6 +29,7 @@ struct TimelineSelectionManager {
     ResizeSide resizingSide = RESIZE_NONE;
     VideoSegment* resizingVideoSegment = nullptr;
     AudioSegment* resizingAudioSegment = nullptr;
+
     // Store original values for revert / reference
     Uint32 resizingSourceStartTime = 0;
     Uint32 resizingOriginalTimelinePosition = 0;

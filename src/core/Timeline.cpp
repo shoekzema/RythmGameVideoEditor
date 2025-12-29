@@ -17,9 +17,7 @@ Timeline::Timeline() {
     m_nextAudioTrackID = 2;
 }
 
-Timeline::~Timeline()
-{
-}
+Timeline::~Timeline() { }
 
 bool Timeline::isPlaying() {
     return m_playing;
