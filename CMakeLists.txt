@@ -5,6 +5,26 @@ cmake_minimum_required (VERSION 3.8)
 
 project(RythmGameVideoEditor LANGUAGES C CXX)
 
+# Ensure single-config generators (Ninja) get a default build type
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "No build type specified; defaulting to Debug")
+  set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build." FORCE)
+endif()
+
+# Make sure MSVC emits usable PDB debug information for Debug/RelWithDebInfo
+if(MSVC)
+  # Use ProgramDatabase for stable PDB generation
+  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "ProgramDatabase" CACHE STRING "" FORCE)
+
+  # Ensure /Zi is present for Debug and RelWithDebInfo
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zi")
+  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /Zi")
+
+  # Prefer no optimization for Debug
+  string(REPLACE "/O2" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Od")
+endif()
+
 # Prefer a consistent C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,6 +47,7 @@ set(SOURCES
     src/window/TimelineWindow.cpp
     src/window/TimelineRenderer.cpp
     src/window/TimelineController.cpp
+    src/window/MenuBar.cpp
 )
 
 # Add the executable
