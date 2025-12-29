@@ -27,9 +27,11 @@ public:
 
     // The virtual implementation method for findType(). Should only be called from findType() or any overwritten findTypeImpl().
     virtual Window* findTypeImpl(const std::type_info& type);
+
 public:
     Window* parent;
     SDL_Rect rect;
+
 protected:
     SDL_Renderer* p_renderer;
     EventManager* p_eventManager;

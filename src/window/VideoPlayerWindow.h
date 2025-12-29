@@ -19,6 +19,7 @@ public:
     void update(int x, int y, int w, int h) override;
     void handleEvent(SDL_Event& event) override;
     Window* findTypeImpl(const std::type_info& type) override;
+
 private:
     // Set the video display Rect. Keeps the video resolution, regardless of window proportions.
     void setVideoRect(SDL_Rect* rect);
@@ -26,16 +27,10 @@ private:
     // Render video and audio based on the segments in the timeline at the current timeline time.
     void renderTimeline();
 
-    // Play the current audio from the timeline
     void playAudio();
-
-    // Pause all audio playback
     void pausePlayback();
 
-    // Gets and renders the current video frame from a video segment
     void renderFrame(VideoSegment* videoSegment);
-
-    // Render the current video frame of a videoSegment to the screen
     void renderFrameToScreen(VideoSegment* videoSegment);
 
     // Get the current video frame from a videoSegment. The resulting frame is stored inside videoSegment.
@@ -47,8 +42,12 @@ private:
     // Process the current frame, returns true if successfull, false if this is not the right frame
     bool processFrame(VideoSegment* videoSegment, Uint32 currentFrame);
 
-    // Play the current audio frame from an audioSegment.
     void playAudioSegment(AudioSegment* audioSegment);
+
+    Uint32 getCurrentTimeInSegment(VideoSegment* segment) {
+        return m_timeline->getCurrentTime() - segment->timelinePosition + segment->sourceStartTime;
+    }
+
 private:
     SDL_Texture* m_videoTexture = nullptr; // Texture for the video frame
     VideoData* m_videoData = nullptr; // Holds pointers to all VideoData for ffmpeg to be able to read frames

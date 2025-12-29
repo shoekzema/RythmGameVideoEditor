@@ -9,6 +9,7 @@
 struct VideoSegment {
     VideoData* videoData;    // Reference to the video data
     Uint32 sourceStartTime;  // Start time in the original video file
+    Uint32 sourceDuration;   // End time in the original video file in the timeline's fps
     Uint32 duration;         // Duration of this segment in its own fps
     Uint32 timelinePosition; // Position in the overall timeline
     Uint32 timelineDuration; // Duration of this segment in the timeline's fps
@@ -30,6 +31,7 @@ struct VideoSegment {
 struct AudioSegment {
     AudioData* audioData;    // Reference to the audio data
     Uint32 sourceStartTime;  // Start time in the original audio file
+    Uint32 sourceDuration;   // End time in the original audio file in the timeline's fps
     Uint32 duration;         // Duration of this segment
     Uint32 timelinePosition; // Position in the overall timeline
     Uint32 timelineDuration; // Duration of this segment in the timeline's fps
@@ -118,12 +120,11 @@ public:
 
     // Delete a track from the timeline
     void deleteTrack(Track track);
-private:
-    // Check if a video segment is colliding with another
-    bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
 
-    // Check if an audio segment is colliding with another
+    // Expose collision checks publicly for editor operations (resizing)
+    bool isCollidingWithOtherSegments(VideoSegment* videoSegment);
     bool isCollidingWithOtherSegments(AudioSegment* audioSegment);
+
 private:
     bool m_playing = false;
     std::vector<VideoSegment> m_videoSegments; // List of all VideoSegments in the timeline.
