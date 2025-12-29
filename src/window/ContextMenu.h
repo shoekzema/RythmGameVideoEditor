@@ -68,15 +68,17 @@ public:
     /**
      * @brief Handle user events.
      * @param event User interaction event code.
+	 * @return True if an event was handled, otherwise false.
      */
-    static void handleEvent(SDL_Event& event) {
+    static bool handleEvent(SDL_Event& event) {
         auto& instance = getInstance();
-        if (!instance.m_isVisible) return;
+        if (!instance.m_isVisible) return false;
 
         if (event.type == SDL_MOUSEMOTION) {
             int mouseX = event.motion.x;
             int mouseY = event.motion.y;
             instance.handleHover(instance.m_mousePoint.x, instance.m_mousePoint.y, mouseX, mouseY, instance.m_items);
+            return true;
         }
         else if (event.type == SDL_MOUSEBUTTONDOWN) {
             int mouseX = event.button.x;
@@ -87,7 +89,9 @@ public:
                     instance.hide();
                 }
             }
+			return true;
         }
+		return false;
     }
 private:
     ContextMenu(SDL_Renderer* renderer) : m_renderer(renderer) {}

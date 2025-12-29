@@ -72,12 +72,15 @@ void Application::handleEvents() {
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) {
-        // Pass event to the root window (which will pass it to all its child windows)
-        if (m_rootWindow) {
-            m_rootWindow->handleEvent(event);
-        }
         // Pass event to the context menu
-        ContextMenu::handleEvent(event);
+        if (!ContextMenu::handleEvent(event)) {
+			// Only pass event to windows if the context menu did not handle it
+
+            // Pass event to the root window (which will pass it to all its child windows)
+            if (m_rootWindow) {
+                m_rootWindow->handleEvent(event);
+            }
+        }
 
         switch (event.type) {
         case SDL_QUIT: {
