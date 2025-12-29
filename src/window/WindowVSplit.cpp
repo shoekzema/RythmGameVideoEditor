@@ -60,7 +60,7 @@ void WindowVSplit::handleEvent(SDL_Event& event) {
         if (SDL_PointInRect(&mouseMotion, &rect)) {
             if (m_draggingDivider) {
                 // Resize the windows dynamically by dragging the divider
-                int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness / 2)) - m_divider.w / 2;
+                int newMiddle = std::max(rect.x + m_dividerThickness / 2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness / 2)) - m_divider.w / 2;
                 m_divider.x = newMiddle;
                 m_leftWindow->update(m_leftWindow->rect.x, m_leftWindow->rect.y, newMiddle - rect.x, m_leftWindow->rect.h);
                 m_rightWindow->update(newMiddle + m_dividerThickness, m_rightWindow->rect.y, rect.w - m_leftWindow->rect.w - m_dividerThickness, m_rightWindow->rect.h);

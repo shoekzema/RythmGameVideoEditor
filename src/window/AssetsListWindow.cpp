@@ -23,6 +23,8 @@ void AssetsListWindow::render() {
     SDL_SetRenderDrawColor(p_renderer, p_color.r, p_color.g, p_color.b, p_color.a);
     SDL_RenderFillRect(p_renderer, &rect); // Draw background
 
+    if (m_assetsList->IsEmpty()) return;
+
     int yPos = rect.y + m_assetStartYPos - m_scrollOffset;
     int i = 0;
     for (const Asset& asset : *m_assetsList->getAllAssets()) {
