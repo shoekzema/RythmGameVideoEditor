@@ -38,7 +38,7 @@ void WindowVSplit::render() {
 void WindowVSplit::update(int x, int y, int w, int h) {
     int widthDiff = rect.w - w;
     int widthChange = widthDiff * m_leftWindow->rect.w / rect.w;
-    m_leftWindow ->update(x,                     y, m_leftWindow->rect.w - widthChange, h);
+    m_leftWindow ->update(x, y, m_leftWindow->rect.w - widthChange, h);
     m_rightWindow->update(m_leftWindow->rect.w, y, w - m_leftWindow->rect.w,           h);
     m_divider = { m_divider.x - widthChange, y, m_dividerThickness, h };
     Window::update(x, y, w, h);
@@ -60,10 +60,10 @@ void WindowVSplit::handleEvent(SDL_Event& event) {
         if (SDL_PointInRect(&mouseMotion, &rect)) {
             if (m_draggingDivider) {
                 // Resize the windows dynamically by dragging the divider
-                int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness / 2)) - rect.x - m_divider.w / 2;
+                int newMiddle = std::max(m_dividerThickness / 2, std::min(event.motion.x, appWindowSizeX - m_dividerThickness / 2)) - m_divider.w / 2;
                 m_divider.x = newMiddle;
-                m_leftWindow->update(m_leftWindow->rect.x, m_leftWindow->rect.y, newMiddle, m_leftWindow->rect.h);
-                m_rightWindow->update(newMiddle + m_dividerThickness, m_rightWindow->rect.y, rect.w - newMiddle - m_dividerThickness, m_rightWindow->rect.h);
+                m_leftWindow->update(m_leftWindow->rect.x, m_leftWindow->rect.y, newMiddle - rect.x, m_leftWindow->rect.h);
+                m_rightWindow->update(newMiddle + m_dividerThickness, m_rightWindow->rect.y, rect.w - m_leftWindow->rect.w - m_dividerThickness, m_rightWindow->rect.h);
             }
             else if (SDL_PointInRect(&mouseMotion, &m_divider)) {
                 SDL_SetCursor(SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_SIZEWE));
