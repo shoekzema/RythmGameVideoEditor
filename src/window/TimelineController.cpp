@@ -2,9 +2,10 @@
 #include "ContextMenu.h"
 #include "util.h"
 #include <algorithm>
+#include <type_traits>
 
 TimelineController::TimelineController(Timeline* timeline, TimelineSelectionManager* selection, TimelineView* view, SDL_Renderer* renderer)
-    : m_timeline(timeline), m_selection(selection), m_view(view), m_renderer(renderer) {}
+    : m_timeline(timeline), m_selection(selection), m_view(view), m_renderer(renderer) { }
 
 void TimelineController::handleEvent(SDL_Event& event, const SDL_Rect& rect) {
     static bool mouseInThisWindow = false;
@@ -17,12 +18,12 @@ void TimelineController::handleEvent(SDL_Event& event, const SDL_Rect& rect) {
         handleMouseButtonDown(event, rect);
         break;
     case SDL_MOUSEMOTION:
-        {
-            SDL_Point mousePoint = { event.motion.x, event.motion.y };
-            mouseInThisWindow = SDL_PointInRect(&mousePoint, &rect) ? true : false;
-        }
-        handleMouseMotion(event, rect);
-        break;
+    {
+        SDL_Point mousePoint = { event.motion.x, event.motion.y };
+        mouseInThisWindow = SDL_PointInRect(&mousePoint, &rect) ? true : false;
+    }
+    handleMouseMotion(event, rect);
+    break;
     case SDL_MOUSEBUTTONUP:
         handleMouseButtonUp(event);
         break;
@@ -37,23 +38,23 @@ void TimelineController::handleEvent(SDL_Event& event, const SDL_Rect& rect) {
 
 void TimelineController::handleKeyDown(const SDL_Event& event) {
     switch (event.key.keysym.sym) {
-        case SDLK_SPACE:
-            m_timeline->togglePlaying();
-            break;
-        case SDLK_DELETE:
-            m_timeline->deleteSegments(&m_selection->selectedVideoSegments, &m_selection->selectedAudioSegments);
-            m_selection->clear();
-            break;
-        case SDLK_RIGHT:
-            m_timeline->setCurrentTime(m_timeline->getCurrentTime() + 1);
-            break;
-        case SDLK_LEFT: {
-            Uint32 currentTime = m_timeline->getCurrentTime();
-            if (currentTime != 0) m_timeline->setCurrentTime(currentTime - 1);
-            break;
-        }
-        default:
-            break;
+    case SDLK_SPACE:
+        m_timeline->togglePlaying();
+        break;
+    case SDLK_DELETE:
+        m_timeline->deleteSegments(&m_selection->selectedVideoSegments, &m_selection->selectedAudioSegments);
+        m_selection->clear();
+        break;
+    case SDLK_RIGHT:
+        m_timeline->setCurrentTime(m_timeline->getCurrentTime() + 1);
+        break;
+    case SDLK_LEFT: {
+        Uint32 currentTime = m_timeline->getCurrentTime();
+        if (currentTime != 0) m_timeline->setCurrentTime(currentTime - 1);
+        break;
+    }
+    default:
+        break;
     }
 }
 
@@ -125,85 +126,105 @@ void TimelineController::handleMouseButtonDown(const SDL_Event& event, const SDL
 
     Uint32 clickedFrame = frameFromMouseX(mouseButton.x, rect);
 
-    // Click in video area?
+    // Common handler for both VideoSegment and AudioSegment to reduce duplication
+    auto handleSegment = [&](auto* clickedSegment, auto& selectedSegmentsVector, int selectedTrackPos) {
+        if (!clickedSegment) return false;
+
+        // Determine render X and width to detect edges
+        int renderX = rect.x + m_view->trackStartXPos + (int)((clickedSegment->timelinePosition - m_view->scrollOffset) * m_view->timeLabelInterval / m_view->zoom);
+        int renderW = (int)(clickedSegment->timelineDuration * m_view->timeLabelInterval / m_view->zoom);
+        int localMouseX = mouseButton.x - renderX;
+
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            // Edge hit detection for resizing (prepare mode)
+            if (localMouseX >= 0 && localMouseX <= EDGE_HIT_RADIUS_PIXELS) {
+                m_selection->isPreparingResize = true;
+                m_selection->resizeMouseHoldStartX = mouseButton.x;
+                m_selection->resizingSide = TimelineSelectionManager::RESIZE_LEFT;
+                if constexpr (std::is_same_v<std::remove_pointer_t<decltype(clickedSegment)>, VideoSegment>) {
+                    m_selection->resizingVideoSegment = clickedSegment;
+                    m_selection->resizingAudioSegment = nullptr;
+                }
+                else {
+                    m_selection->resizingAudioSegment = clickedSegment;
+                    m_selection->resizingVideoSegment = nullptr;
+                }
+                m_selection->resizingOriginalTimelinePosition = clickedSegment->timelinePosition;
+                m_selection->resizingOriginalTimelineDuration = clickedSegment->timelineDuration;
+                return true;
+            }
+            else if (localMouseX >= renderW - EDGE_HIT_RADIUS_PIXELS && localMouseX <= renderW) {
+                m_selection->isPreparingResize = true;
+                m_selection->resizeMouseHoldStartX = mouseButton.x;
+                m_selection->resizingSide = TimelineSelectionManager::RESIZE_RIGHT;
+                if constexpr (std::is_same_v<std::remove_pointer_t<decltype(clickedSegment)>, VideoSegment>) {
+                    m_selection->resizingVideoSegment = clickedSegment;
+                    m_selection->resizingAudioSegment = nullptr;
+                }
+                else {
+                    m_selection->resizingAudioSegment = clickedSegment;
+                    m_selection->resizingVideoSegment = nullptr;
+                }
+                m_selection->resizingOriginalTimelinePosition = clickedSegment->timelinePosition;
+                m_selection->resizingOriginalTimelineDuration = clickedSegment->timelineDuration;
+                return true;
+            }
+
+            if (SDL_GetModState() & KMOD_SHIFT) {
+                if (std::find(selectedSegmentsVector.begin(), selectedSegmentsVector.end(), clickedSegment) == selectedSegmentsVector.end()) {
+                    selectedSegmentsVector.push_back(clickedSegment);
+                }
+                else {
+                    selectedSegmentsVector.erase(std::remove(selectedSegmentsVector.begin(), selectedSegmentsVector.end(), clickedSegment), selectedSegmentsVector.end());
+                }
+            }
+            else {
+                if (std::find(selectedSegmentsVector.begin(), selectedSegmentsVector.end(), clickedSegment) == selectedSegmentsVector.end()) {
+                    m_selection->selectedVideoSegments.clear();
+                    m_selection->selectedAudioSegments.clear();
+                    selectedSegmentsVector.push_back(clickedSegment);
+                }
+                m_selection->isHolding = true;
+                m_selection->mouseHoldStartX = mouseButton.x;
+                m_selection->lastLegalTrackPos = selectedTrackPos;
+                m_selection->selectedMaxTrackPos = selectedTrackPos;
+                m_selection->selectedMinTrackPos = selectedTrackPos;
+                m_selection->lastLegalFrame = clickedFrame;
+                m_selection->lastLegalLeftmostFrame = clickedFrame;
+
+                for (auto* vs : m_selection->selectedVideoSegments) {
+                    if (vs->timelinePosition < m_selection->lastLegalLeftmostFrame) m_selection->lastLegalLeftmostFrame = vs->timelinePosition;
+                    int segmentTrackPos = m_timeline->getVideoTrackPos(vs->trackID);
+                    m_selection->selectedMaxTrackPos = std::max(m_selection->selectedMaxTrackPos, segmentTrackPos);
+                    m_selection->selectedMinTrackPos = std::min(m_selection->selectedMinTrackPos, segmentTrackPos);
+                }
+                for (auto* as : m_selection->selectedAudioSegments) {
+                    if (as->timelinePosition < m_selection->lastLegalLeftmostFrame) m_selection->lastLegalLeftmostFrame = as->timelinePosition;
+                    int segmentTrackPos = m_timeline->getVideoTrackPos(as->trackID);
+                    m_selection->selectedMaxTrackPos = std::max(m_selection->selectedMaxTrackPos, segmentTrackPos);
+                    m_selection->selectedMinTrackPos = std::min(m_selection->selectedMinTrackPos, segmentTrackPos);
+                }
+            }
+        }
+        else if (event.button.button == SDL_BUTTON_RIGHT) {
+            if (std::find(selectedSegmentsVector.begin(), selectedSegmentsVector.end(), clickedSegment) == selectedSegmentsVector.end()) {
+                m_selection->selectedVideoSegments.clear();
+                m_selection->selectedAudioSegments.clear();
+                selectedSegmentsVector.push_back(clickedSegment);
+            }
+        }
+
+        return true;
+	}; // End of handleSegment lambda
+
+    // If clicked in video area
     if (mouseButton.y > rect.y + m_view->topBarheight && mouseButton.y < rect.y + m_view->topBarheight + m_timeline->getVideoTrackCount() * m_view->trackHeight) {
         int selectedTrackPos = m_timeline->getVideoTrackCount() - 1 - ((mouseButton.y - rect.y - m_view->topBarheight) / m_view->trackHeight);
         VideoSegment* clickedVideoSegment = m_timeline->getVideoSegment(selectedTrackPos, clickedFrame);
 
         if (clickedVideoSegment) {
-            // Determine segment render X and width to detect edges
-            int renderX = rect.x + m_view->trackStartXPos + (int)((clickedVideoSegment->timelinePosition - m_view->scrollOffset) * m_view->timeLabelInterval / m_view->zoom);
-            int renderW = (int)(clickedVideoSegment->timelineDuration * m_view->timeLabelInterval / m_view->zoom);
-            int localMouseX = mouseButton.x - renderX;
-
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                // Edge hit detection for resizing (prepare mode)
-                if (localMouseX >= 0 && localMouseX <= EDGE_HIT_RADIUS_PIXELS) {
-                    // preparing left-edge resize: wait for threshold movement
-                    m_selection->isPreparingResize = true;
-                    m_selection->resizeMouseHoldStartX = mouseButton.x;
-                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_LEFT;
-                    m_selection->resizingVideoSegment = clickedVideoSegment;
-                    m_selection->resizingAudioSegment = nullptr;
-                    m_selection->resizingOriginalTimelinePosition = clickedVideoSegment->timelinePosition;
-                    m_selection->resizingOriginalTimelineDuration = clickedVideoSegment->timelineDuration;
-                    return;
-                } else if (localMouseX >= renderW - EDGE_HIT_RADIUS_PIXELS && localMouseX <= renderW) {
-                    // preparing right-edge resize
-                    m_selection->isPreparingResize = true;
-                    m_selection->resizeMouseHoldStartX = mouseButton.x;
-                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_RIGHT;
-                    m_selection->resizingVideoSegment = clickedVideoSegment;
-                    m_selection->resizingAudioSegment = nullptr;
-                    m_selection->resizingOriginalTimelinePosition = clickedVideoSegment->timelinePosition;
-                    m_selection->resizingOriginalTimelineDuration = clickedVideoSegment->timelineDuration;
-                    return;
-                }
-
-                if (SDL_GetModState() & KMOD_SHIFT) {
-                    if (std::find(m_selection->selectedVideoSegments.begin(), m_selection->selectedVideoSegments.end(), clickedVideoSegment) == m_selection->selectedVideoSegments.end()) {
-                        m_selection->selectedVideoSegments.push_back(clickedVideoSegment);
-                    }
-                    else {
-                        m_selection->selectedVideoSegments.erase(std::remove(m_selection->selectedVideoSegments.begin(), m_selection->selectedVideoSegments.end(), clickedVideoSegment), m_selection->selectedVideoSegments.end());
-                    }
-                }
-                else {
-                    if (std::find(m_selection->selectedVideoSegments.begin(), m_selection->selectedVideoSegments.end(), clickedVideoSegment) == m_selection->selectedVideoSegments.end()) {
-                        m_selection->selectedVideoSegments.clear();
-                        m_selection->selectedAudioSegments.clear();
-                        m_selection->selectedVideoSegments.push_back(clickedVideoSegment);
-                    }
-                    m_selection->isHolding = true;
-                    m_selection->mouseHoldStartX = mouseButton.x;
-                    m_selection->lastLegalTrackPos = selectedTrackPos;
-                    m_selection->selectedMaxTrackPos = selectedTrackPos;
-                    m_selection->selectedMinTrackPos = selectedTrackPos;
-                    m_selection->lastLegalFrame = clickedFrame;
-                    m_selection->lastLegalLeftmostFrame = clickedFrame;
-
-                    for (auto* vs : m_selection->selectedVideoSegments) {
-                        if (vs->timelinePosition < m_selection->lastLegalLeftmostFrame) m_selection->lastLegalLeftmostFrame = vs->timelinePosition;
-                        int segmentTrackPos = m_timeline->getVideoTrackPos(vs->trackID);
-                            m_selection->selectedMaxTrackPos = std::max(m_selection->selectedMaxTrackPos, segmentTrackPos);
-                            m_selection->selectedMinTrackPos = std::min(m_selection->selectedMinTrackPos, segmentTrackPos);
-                        }
-                    for (auto* as : m_selection->selectedAudioSegments) {
-                        if (as->timelinePosition < m_selection->lastLegalLeftmostFrame) m_selection->lastLegalLeftmostFrame = as->timelinePosition;
-                        int segmentTrackPos = m_timeline->getVideoTrackPos(as->trackID);
-                            m_selection->selectedMaxTrackPos = std::max(m_selection->selectedMaxTrackPos, segmentTrackPos);
-                            m_selection->selectedMinTrackPos = std::min(m_selection->selectedMinTrackPos, segmentTrackPos);
-                        }
-                }
-            }
-            else if (event.button.button == SDL_BUTTON_RIGHT) {
-                if (std::find(m_selection->selectedVideoSegments.begin(), m_selection->selectedVideoSegments.end(), clickedVideoSegment) == m_selection->selectedVideoSegments.end()) {
-                    m_selection->selectedVideoSegments.clear();
-                    m_selection->selectedAudioSegments.clear();
-                    m_selection->selectedVideoSegments.push_back(clickedVideoSegment);
-                }
-            }
-            return;
+            if (handleSegment(clickedVideoSegment, m_selection->selectedVideoSegments, selectedTrackPos)) 
+                return;
         }
     }
     // Otherwise, if clicked in the audioTrack area
@@ -213,75 +234,8 @@ void TimelineController::handleMouseButtonDown(const SDL_Event& event, const SDL
         AudioSegment* clickedAudioSegment = m_timeline->getAudioSegment(selectedTrackPos, clickedFrame);
 
         if (clickedAudioSegment) {
-            int renderX = rect.x + m_view->trackStartXPos + (int)((clickedAudioSegment->timelinePosition - m_view->scrollOffset) * m_view->timeLabelInterval / m_view->zoom);
-            int renderW = (int)(clickedAudioSegment->timelineDuration * m_view->timeLabelInterval / m_view->zoom);
-            int localMouseX = mouseButton.x - renderX;
-
-            if (event.button.button == SDL_BUTTON_LEFT) {
-                if (localMouseX >= 0 && localMouseX <= EDGE_HIT_RADIUS_PIXELS) {
-                    m_selection->isPreparingResize = true;
-                    m_selection->resizeMouseHoldStartX = mouseButton.x;
-                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_LEFT;
-                    m_selection->resizingAudioSegment = clickedAudioSegment;
-                    m_selection->resizingVideoSegment = nullptr;
-                    m_selection->resizingOriginalTimelinePosition = clickedAudioSegment->timelinePosition;
-                    m_selection->resizingOriginalTimelineDuration = clickedAudioSegment->timelineDuration;
-                    return;
-                } else if (localMouseX >= renderW - EDGE_HIT_RADIUS_PIXELS && localMouseX <= renderW) {
-                    m_selection->isPreparingResize = true;
-                    m_selection->resizeMouseHoldStartX = mouseButton.x;
-                    m_selection->resizingSide = TimelineSelectionManager::RESIZE_RIGHT;
-                    m_selection->resizingAudioSegment = clickedAudioSegment;
-                    m_selection->resizingVideoSegment = nullptr;
-                    m_selection->resizingOriginalTimelinePosition = clickedAudioSegment->timelinePosition;
-                    m_selection->resizingOriginalTimelineDuration = clickedAudioSegment->timelineDuration;
-                    return;
-                }
-
-                if (SDL_GetModState() & KMOD_SHIFT) {
-                    if (std::find(m_selection->selectedAudioSegments.begin(), m_selection->selectedAudioSegments.end(), clickedAudioSegment) == m_selection->selectedAudioSegments.end()) {
-                        m_selection->selectedAudioSegments.push_back(clickedAudioSegment);
-                    }
-                    else {
-                        m_selection->selectedAudioSegments.erase(std::remove(m_selection->selectedAudioSegments.begin(), m_selection->selectedAudioSegments.end(), clickedAudioSegment), m_selection->selectedAudioSegments.end());
-                    }
-                }
-                else {
-                    if (std::find(m_selection->selectedAudioSegments.begin(), m_selection->selectedAudioSegments.end(), clickedAudioSegment) == m_selection->selectedAudioSegments.end()) {
-                        m_selection->selectedVideoSegments.clear();
-                        m_selection->selectedAudioSegments.clear();
-                        m_selection->selectedAudioSegments.push_back(clickedAudioSegment);
-                    }
-                    m_selection->isHolding = true;
-                    m_selection->mouseHoldStartX = mouseButton.x;
-                    m_selection->lastLegalTrackPos = selectedTrackPos;
-                    m_selection->selectedMaxTrackPos = selectedTrackPos;
-                    m_selection->selectedMinTrackPos = selectedTrackPos;
-                    m_selection->lastLegalFrame = clickedFrame;
-                    m_selection->lastLegalLeftmostFrame = clickedFrame;
-
-                    for (auto* vs : m_selection->selectedVideoSegments) {
-                        if (vs->timelinePosition < m_selection->lastLegalLeftmostFrame) m_selection->lastLegalLeftmostFrame = vs->timelinePosition;
-                        int segmentTrackPos = m_timeline->getVideoTrackPos(vs->trackID);
-                        m_selection->selectedMaxTrackPos = std::max(m_selection->selectedMaxTrackPos, segmentTrackPos);
-                        m_selection->selectedMinTrackPos = std::min(m_selection->selectedMinTrackPos, segmentTrackPos);
-                    }
-                    for (auto* as : m_selection->selectedAudioSegments) {
-                        if (as->timelinePosition < m_selection->lastLegalLeftmostFrame) m_selection->lastLegalLeftmostFrame = as->timelinePosition;
-                        int segmentTrackPos = m_timeline->getVideoTrackPos(as->trackID);
-                        m_selection->selectedMaxTrackPos = std::max(m_selection->selectedMaxTrackPos, segmentTrackPos);
-                        m_selection->selectedMinTrackPos = std::min(m_selection->selectedMinTrackPos, segmentTrackPos);
-                    }
-                }
-            }
-            else if (event.button.button == SDL_BUTTON_RIGHT) {
-                if (std::find(m_selection->selectedAudioSegments.begin(), m_selection->selectedAudioSegments.end(), clickedAudioSegment) == m_selection->selectedAudioSegments.end()) {
-                    m_selection->selectedVideoSegments.clear();
-                    m_selection->selectedAudioSegments.clear();
-                    m_selection->selectedAudioSegments.push_back(clickedAudioSegment);
-                }
-            }
-            return;
+            if (handleSegment(clickedAudioSegment, m_selection->selectedAudioSegments, selectedTrackPos)) 
+                return;
         }
     }
 
@@ -335,7 +289,7 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
                 // adjust duration and position
                 Uint32 newDuration = (vs->timelinePosition + vs->timelineDuration) - currentFrame;
                 // Temporarily apply
-				vs->sourceStartTime = vs->sourceStartTime + (currentFrame - vs->timelinePosition);
+                vs->sourceStartTime = vs->sourceStartTime + (currentFrame - vs->timelinePosition);
                 vs->timelinePosition = currentFrame;
                 vs->timelineDuration = newDuration;
                 // collision check: if collides, revert
@@ -344,13 +298,15 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
                     vs->sourceStartTime  = m_selection->resizingSourceStartTime;
                     vs->timelinePosition = m_selection->resizingOriginalTimelinePosition;
                     vs->timelineDuration = m_selection->resizingOriginalTimelineDuration;
-                } else {
+                }
+                else {
                     // update original for continuous resize
                     m_selection->resizingSourceStartTime          = vs->sourceStartTime;
                     m_selection->resizingOriginalTimelinePosition = vs->timelinePosition;
                     m_selection->resizingOriginalTimelineDuration = vs->timelineDuration;
                 }
-            } else if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_RIGHT) {
+            }
+            else if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_RIGHT) {
                 // new duration = currentFrame - timelinePosition
                 Uint32 maxEnd = vs->timelinePosition - vs->sourceStartTime + vs->sourceDuration;
                 if (currentFrame <= vs->timelinePosition) currentFrame = vs->timelinePosition + 1;
@@ -359,7 +315,8 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
                 vs->timelineDuration = newDuration;
                 if (m_timeline->isCollidingWithOtherSegments(vs)) {
                     vs->timelineDuration = m_selection->resizingOriginalTimelineDuration;
-                } else {
+                }
+                else {
                     m_selection->resizingOriginalTimelineDuration = vs->timelineDuration;
                 }
             }
@@ -379,12 +336,13 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
                     as->sourceStartTime  = m_selection->resizingSourceStartTime;
                     as->timelinePosition = m_selection->resizingOriginalTimelinePosition;
                     as->timelineDuration = m_selection->resizingOriginalTimelineDuration;
-                } else {
-                    m_selection->resizingSourceStartTime          = as->sourceStartTime;
+                }
+                else {
                     m_selection->resizingOriginalTimelinePosition = as->timelinePosition;
                     m_selection->resizingOriginalTimelineDuration = as->timelineDuration;
                 }
-            } else if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_RIGHT) {
+            }
+            else if (m_selection->resizingSide == TimelineSelectionManager::RESIZE_RIGHT) {
                 Uint32 maxEnd = as->timelinePosition - as->sourceStartTime + as->sourceDuration;
                 if (currentFrame <= as->timelinePosition) currentFrame = as->timelinePosition + 1;
                 if (currentFrame > maxEnd) currentFrame = maxEnd;
@@ -392,7 +350,8 @@ void TimelineController::handleMouseMotion(const SDL_Event& event, const SDL_Rec
                 as->timelineDuration = newDuration;
                 if (m_timeline->isCollidingWithOtherSegments(as)) {
                     as->timelineDuration = m_selection->resizingOriginalTimelineDuration;
-                } else {
+                }
+                else {
                     m_selection->resizingOriginalTimelineDuration = as->timelineDuration;
                 }
             }
@@ -493,7 +452,8 @@ void TimelineController::handleMouseWheel(const SDL_Event& event) {
     if (mod & KMOD_CTRL) {
         if (scrollDirection > 0 && m_view->zoom > 2) m_view->zoom /= 2;
         if (scrollDirection < 0 && m_view->zoom < UINT16_MAX / 2) m_view->zoom *= 2;
-    } else if (mod & KMOD_SHIFT) {
+    }
+    else if (mod & KMOD_SHIFT) {
         // Vertical scrolling (not implemented yet)
     }
     else {
